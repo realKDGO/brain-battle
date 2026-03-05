@@ -1,15 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Brain Battle</title>
+  <title>Game Test</title>
 </head>
 <body>
-  <h1>Brain Battle</h1>
+  <h1>Room Test</h1>
+
+  <input id="name" placeholder="Enter player name">
+  <button id="createBtn">Create Room</button>
+  <br><br>
+  <input id="roomCode" placeholder="Enter room code">
+  <button id="joinBtn">Join Room</button>
+
+  <pre id="log"></pre>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    console.log("Connected to server");
+    const log = document.getElementById("log");
+
+    function append(msg) {
+      log.textContent += msg + "\n";
+    }
+
+    document.getElementById("createBtn").onclick = () => {
+      const name = document.getElementById("name").value;
+      socket.emit("createRoom", name);
+    };
+
+    document.getElementById("joinBtn").onclick = () => {
+      const name = document.getElementById("name").value;
+      const code = document.getElementById("roomCode").value;
+      socket.emit("joinRoom", { roomCode: code, playerName: name });
+    };
+
+    socket.on("createRoomResponse", (res) => append("Create: " + JSON.stringify(res)));
+    socket.on("joinRoomResponse", (res) => append("Join: " + JSON.stringify(res)));
+    socket.on("roomUpdate", (room) => append("Room Update: " + JSON.stringify(room)));
   </script>
 </body>
 </html>
