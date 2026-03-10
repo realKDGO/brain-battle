@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Word Chain - Join</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 15px; }
+        .panel { border: 1px solid #ccc; padding: 20px; text-align: center; background: #f9f9f9; }
+        input, button { padding: 10px; font-size: 16px; margin: 5px; width: 80%; }
+        button { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h1>Join Room</h1>
+        <input type="text" id="playerName" placeholder="Your Name">
+        <input type="text" id="roomCode" placeholder="Room Code">
+        <button onclick="joinRoom()">Join Room</button>
+        <p id="msg" style="color:red;"></p>
+    </div>
+
+    <script>
+        function joinRoom() {
+            const name = document.getElementById('playerName').value.trim();
+            const room = document.getElementById('roomCode').value.trim().toUpperCase();
+            if(!name || !room) return document.getElementById('msg').innerText = "Fill all fields";
+            
+            window.location.href = `game.html?room=${room}&name=${encodeURIComponent(name)}`;
+        }
+    </script>
+</body>
+</html>

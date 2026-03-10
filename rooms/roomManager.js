@@ -32,7 +32,7 @@ function createRoom(socketId, playerName) {
     host: socketId,
     players: [{ id: socketId, name: playerName }],
     gameMode: null,
-    gameState: "WAITING",
+    gameState: "SETUP",
     gameData: {},
   };
 
@@ -117,6 +117,16 @@ function getRoom(roomCode) {
   return rooms[roomCode] || null;
 }
 
+// ─── Lookups (continued) ──────────────────────────────────────────────────────
+
+/**
+ * Return the raw rooms map.
+ * Used by gameEngine.js to resolve rooms without a circular import.
+ */
+function getRooms() {
+  return rooms;
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -125,4 +135,5 @@ module.exports = {
   leaveRoom,
   findRoomBySocket,
   getRoom,
+  getRooms,
 };

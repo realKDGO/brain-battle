@@ -1,42 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Game Test</title>
+    <meta charset="UTF-8">
+    <title>Word Chain - Home</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 20px; }
+        .btn { padding: 15px 30px; font-size: 18px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background: #eee; text-decoration: none; color: black; }
+        .btn:hover { background: #ddd; }
+    </style>
 </head>
 <body>
-  <h1>Room Test</h1>
-
-  <input id="name" placeholder="Enter player name">
-  <button id="createBtn">Create Room</button>
-  <br><br>
-  <input id="roomCode" placeholder="Enter room code">
-  <button id="joinBtn">Join Room</button>
-
-  <pre id="log"></pre>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const log = document.getElementById("log");
-
-    function append(msg) {
-      log.textContent += msg + "\n";
-    }
-
-    document.getElementById("createBtn").onclick = () => {
-      const name = document.getElementById("name").value;
-      socket.emit("createRoom", name);
-    };
-
-    document.getElementById("joinBtn").onclick = () => {
-      const name = document.getElementById("name").value;
-      const code = document.getElementById("roomCode").value;
-      socket.emit("joinRoom", { roomCode: code, playerName: name });
-    };
-
-    socket.on("createRoomResponse", (res) => append("Create: " + JSON.stringify(res)));
-    socket.on("joinRoomResponse", (res) => append("Join: " + JSON.stringify(res)));
-    socket.on("roomUpdate", (room) => append("Room Update: " + JSON.stringify(room)));
-  </script>
+    <h1>Word Chain (Test Client)</h1>
+    <a href="host.html" class="btn">Create Room (Host)</a>
+    <a href="join.html" class="btn">Join Room (Guest)</a>
 </body>
 </html>

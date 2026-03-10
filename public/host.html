@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Word Chain - Host</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .panel { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; background: #f9f9f9; }
+        input, button { padding: 8px; margin: 5px; }
+        #logs { width: 100%; height: 200px; background: #222; color: #0f0; font-family: monospace; overflow-y: auto; }
+        .word-input { width: 120px; display: block; margin-bottom: 10px; text-transform: uppercase; }
+        .flex { display: flex; flex-direction: column; gap: 20px; max-width: 600px; margin: auto; }
+        .container { width: 100%; margin: auto; max-width: 900px; }
+        
+        #snackbar {
+            visibility: hidden; min-width: 250px; margin-left: -125px; background-color: #f44336; color: #fff;
+            text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1000;
+            left: 50%; bottom: 30px; font-weight: bold; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #snackbar.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Host Panel</h1>
+    
+    <div class="panel">
+        <h2>Host Controls</h2>
+        <input type="text" id="playerName" placeholder="Enter your name">
+        <button onclick="createRoom()">Create Room</button>
+        <button onclick="startGame()">Start Game (SETUP &rarr; ACTIVE)</button>
+    </div>
+
+    <div class="panel">
+        <h2>Room State</h2>
+        <p><strong>Room Code:</strong> <span id="roomCode">-</span></p>
+        <p><strong>Game State:</strong> <span id="gameState">-</span></p>
+        <p><strong>Players:</strong> <span id="playersList">-</span></p>
+    </div>
+
+    <!-- Gameplay Area for Host so they can participate -->
+    <div class="flex">
+        <div class="panel" style="flex: 1;" id="setupPhase">
+            <h2>Setup Phase (Your Words)</h2>
+            <button onclick="autoGenerate()">Auto Generate Words</button>
+            <p>Or manually enter 7 words:</p>
+            <div id="manualInputs">
+                <input type="text" class="word-input" id="w1" placeholder="Word 1">
+                <input type="text" class="word-input" id="w2" placeholder="Word 2">
+                <input type="text" class="word-input" id="w3" placeholder="Word 3">
+                <input type="text" class="word-input" id="w4" placeholder="Word 4">
+                <input type="text" class="word-input" id="w5" placeholder="Word 5">
+                <input type="text" class="word-input" id="w6" placeholder="Word 6">
+                <input type="text" class="word-input" id="w7" placeholder="Word 7">
+            </div>
+            <button onclick="submitWords()">Submit Words</button>
+        </div>
+
+        <div class="panel" style="flex: 1; display: none;" id="activePhase">
+            <h2>Active Phase</h2>
+            <h3>Opponent's Chain</h3>
+            <div id="guessInputs">
+                <input type="text" class="word-input" id="g1" readonly disabled>
+                <input type="text" class="word-input" id="g2" disabled>
+                <input type="text" class="word-input" id="g3" disabled>
+                <input type="text" class="word-input" id="g4" disabled>
+                <input type="text" class="word-input" id="g5" disabled>
+                <input type="text" class="word-input" id="g6" disabled>
+                <input type="text" class="word-input" id="g7" readonly disabled>
+            </div>
+            
+            <h3 id="endMsg" style="color:red; display:none;"></h3>
+            <button onclick="submitGuess()">Submit Guess</button>
+            
+            <h3>Scores</h3>
+            <p>Your Score: <span id="myScore">0</span></p>
+            <p>Opponent Score: <span id="opScore">Hidden until end</span></p>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Server Logs</h2>
+        <textarea id="logs" readonly></textarea>
+    </div>
+
+    <!-- Snackbar Element -->
+    <div id="snackbar"></div>
+
+    <script>
+        const socket = io();
+        let myId = null;
+
+        function showError(msg) {
+            const sb = document.getElementById("snackbar");
+            sb.innerText = msg;
+            sb.className = "show";
+            setTimeout(() => { sb.className = sb.className.replace("show", ""); }, 3000);
+        }
+
+        function log(msg, data) {
+            const l = document.getElementById('logs');
+            console.log(msg, data);
+            l.value += `[${new Date().toLocaleTimeString()}] ${msg} ${data ? JSON.stringify(data) : ''}\n`;
+            l.scrollTop = l.scrollHeight;
+        }
+
+        socket.on('connect', () => {
+            myId = socket.id;
+            log('Connected with ID:', myId);
+        });
+
+        // Emitters
+        function createRoom() {
+            const name = document.getElementById('playerName').value || 'Host';
+            socket.emit('createRoom', name);
+        }
+        function startGame() { socket.emit('startGame'); }
+
+        function autoGenerate() {
+            socket.emit('submitSetup', { data: { autoGenerate: true } });
+        }
+        function submitWords() {
+            const words = [1,2,3,4,5,6,7].map(i => document.getElementById('w'+i).value.trim()).filter(Boolean);
+            if(words.length !== 7) return showError("Enter exactly 7 words");
+            socket.emit('submitSetup', { data: { words } });
+            
+            // Clear inputs purely for visual reset per user request
+            [1,2,3,4,5,6,7].forEach(i => document.getElementById('w'+i).value = "");
+        }
+        function submitGuess() {
+            let activeInput;
+            let activeIndex = -1;
+            for (let i = 2; i <= 6; i++) {
+                const el = document.getElementById('g' + i);
+                if (!el.disabled) {
+                    activeInput = el;
+                    activeIndex = i; // 1-based index based on ID g1-g7
+                    break;
+                }
+            }
+            if (!activeInput) return;
+            const guess = activeInput.value.trim();
+            const hintLen = parseInt(activeInput.getAttribute('data-hintlength') || "0", 10);
+            if (guess.length <= hintLen) return showError("Enter a complete guess!");
+            const roomId = document.getElementById('roomCode').innerText;
+            socket.emit('submitAction', { 
+                roomId: roomId,
+                playerId: myId,
+                currentWordIndex: activeIndex - 1, // converting to 0-based index
+                guessedWord: guess,
+                data: { guess } // Backwards compatibility if needed, but the server handles .data.guess
+            });
+        }
+        
+        // Enter key listeners and hint protection
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll('#manualInputs input').forEach(input => {
+                input.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') submitWords();
+                });
+            });
+            document.querySelectorAll('#guessInputs input').forEach(input => {
+                // Prevent deleting server-provided hints
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' || e.key === 'Delete') {
+                        const hintLen = parseInt(input.getAttribute('data-hintlength') || "0", 10);
+                        if (input.value.length <= hintLen) {
+                            e.preventDefault();
+                        }
+                    }
+                });
+
+                input.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        // Suppress submit if nothing extra was typed beyond the base hint
+                        const hintLen = parseInt(input.getAttribute('data-hintlength') || "0", 10);
+                        if (input.value.trim().length <= hintLen) {
+                            e.preventDefault();
+                            showError("Enter a complete guess!");
+                            return;
+                        }
+                        submitGuess();
+                    }
+                });
+            });
+        });
+        socket.on('roomUpdate', (r) => {
+            log('roomUpdate', r);
+            document.getElementById('gameState').innerText = r.gameState;
+            document.getElementById('playersList').innerText = r.players ? r.players.map(p => p.name).join(', ') : '-';
+            
+            if (r.gameState === "ACTIVE") {
+               document.getElementById('setupPhase').style.display = 'none';
+               document.getElementById('activePhase').style.display = 'block';
+            } else if (r.gameState === "SETUP") {
+               document.getElementById('setupPhase').style.display = 'block';
+               document.getElementById('activePhase').style.display = 'none';
+            }
+
+            if(r.gameData && r.gameData.scores && myId) {
+                document.getElementById('myScore').innerText = r.gameData.scores[myId] || 0;
+            }
+        });
+
+        socket.on('createRoomResponse', d => {
+            log('createRoomResponse', d);
+            if(d.success) document.getElementById('roomCode').innerText = d.roomCode;
+        });
+
+        socket.on('submitSetupResponse', d => {
+            log('submitSetupResponse', d);
+            if (!d.success && d.error) {
+                showError(d.error);
+            }
+            if (d.words) { // auto-generated
+               d.words.forEach((w, i) => document.getElementById('w' + (i+1)).value = w);
+            }
+        });
+        
+        socket.on('startGameResponse', d => {
+            log('startGameResponse', d);
+        });
+
+        function updateRevealedWords(revealedArray, currentIndex) {
+            for (let i = 0; i < 7; i++) {
+                const input = document.getElementById('g' + (i + 1));
+                if (revealedArray[i]) {
+                    input.value = revealedArray[i];
+                    input.setAttribute('data-hintlength', revealedArray[i].length);
+                }
+                
+                if (i === 0 || i === 6) {
+                    input.readOnly = true;
+                    input.disabled = true;
+                } else if (currentIndex && i === currentIndex) {
+                    input.readOnly = false;
+                    input.disabled = false;
+                    if (document.activeElement !== input) {
+                        input.focus();
+                        // Move cursor to the end
+                        const len = input.value.length;
+                        input.setSelectionRange(len, len);
+                    }
+                } else if (currentIndex && i < currentIndex) {
+                    input.readOnly = true;
+                    input.disabled = true;
+                } else {
+                    input.readOnly = true;
+                    input.disabled = true;
+                }
+            }
+        }
+
+        socket.on('gameStarted', d => {
+            log('gameStarted', d);
+            if(d.payload && d.payload[myId]) {
+                 updateRevealedWords(d.payload[myId].revealedWords, d.payload[myId].currentIndex);
+            }
+        });
+        
+        socket.on('submitActionResponse', d => {
+            log('submitActionResponse', d);
+            if (!d.success && d.error) {
+                showError(d.error);
+            }
+            if(d.gameResult && d.gameResult.revealedWords) {
+                 updateRevealedWords(d.gameResult.revealedWords, d.gameResult.currentIndex);
+            }
+        });
+
+        socket.on('endGameResponse', d => {
+            log('endGameResponse', d);
+            const msgEl = document.getElementById('endMsg');
+            msgEl.style.display = 'block';
+            if (d.winner) {
+                msgEl.innerText = `${d.winner.name} wins!`;
+            } else {
+                msgEl.innerText = 'Draw!';
+            }
+            if (d.scores) {
+               const pIds = Object.keys(d.scores);
+               const opId = pIds.find(id => id !== myId);
+               if (opId) document.getElementById('opScore').innerText = d.scores[opId];
+            }
+        });
+    </script>
+</body>
+</html>
