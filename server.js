@@ -1,5 +1,6 @@
 // server.js
-// Thin event router — all room and game logic lives in roomManager / gameEngine.
+// Thin event router — all room and game logic lives in roomManager.
+require('dotenv').config();
 
 const express = require("express");
 const http    = require("http");
@@ -230,12 +231,12 @@ io.on("connection", (socket) => {
   // ── submitSetup ────────────────────────────────────────────────────────────
   // Any player submits game-specific setup data (e.g., word list, chosen number).
   // Client sends: { data: object }
-  socket.on("submitSetup", ({ data } = {}) => {
+  socket.on("submitSetup", async ({ data } = {}) => {
     const ctx = requireRoom(socket, "submitSetup");
     if (!ctx) return;
     const { roomCode } = ctx;
 
-    const result = submitSetup(roomCode, socket.id, data);
+    const result = await submitSetup(roomCode, socket.id, data);
     
     if (result.forceSync) {
       // Collision: both players had the same chain — both sets were randomized.

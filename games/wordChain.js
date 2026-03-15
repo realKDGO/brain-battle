@@ -99,7 +99,44 @@ function init(players) {
   return { chains, guessProgress, scores };
 }
 
-function handleSetup(gameData, socketId, data) {
+async function isValidCompoundAPI(wordA, wordB) {
+  const apiKey = process.env.MW_API_KEY;
+  if (!apiKey) {
+    console.warn("MW_API_KEY not found. Skipping strict API validation.");
+    return true;
+  }
+
+  try {
+    // Check joined (e.g., "starfish")
+    const joined = `${wordA}${wordB}`;
+    const joinedRes = await fetch(`https://www.dictionaryapi.com/api/v3/references/collegiate/json/${joined}?key=${apiKey}`);
+    if (joinedRes.ok) {
+      const data = await joinedRes.json();
+      if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'object') {
+        return true;
+      }
+    }
+
+    // Check spaced (e.g., "star light")
+    const spaced = `${wordA} ${wordB}`;
+    // Node.js fetch needs encodeURIComponent for spaces
+    const spacedRes = await fetch(`https://www.dictionaryapi.com/api/v3/references/collegiate/json/${encodeURIComponent(spaced)}?key=${apiKey}`);
+    if (spacedRes.ok) {
+      const data = await spacedRes.json();
+      if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'object') {
+        return true;
+      }
+    }
+  } catch (err) {
+    console.error("Dictionary API error:", err);
+    // On network failure, we can default to true so the game isn't unplayable
+    return true;
+  }
+
+  return false;
+}
+
+async function handleSetup(gameData, socketId, data) {
   const { words, autoGenerate } = data || {};
 
   if (autoGenerate) {
@@ -119,12 +156,15 @@ function handleSetup(gameData, socketId, data) {
     validated.push(res.word);
   }
 
-  // Validate that the submitted chain forms a true compound chain according to the dictionary
-  const isCompoundChain = compounds.some(chain => 
-    chain.length === 7 && chain.every((w, i) => w === validated[i])
-  );
-  if (!isCompoundChain) {
-      return { success: false, error: 'That sequence does not form valid compound connections according to the dictionary.' };
+  // Validate that the submitted chain forms a true compound chain using the Dictionary API
+  for (let i = 0; i < validated.length - 1; i++) {
+    const isValid = await isValidCompoundAPI(validated[i], validated[i + 1]);
+    if (!isValid) {
+      return { 
+        success: false, 
+        error: `"${validated[i]}" and "${validated[i + 1]}" do not form a recognized compound phrase according to the dictionary.` 
+      };
+    }
   }
 
   gameData.chains[socketId].words = validated;

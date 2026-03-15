@@ -239,7 +239,7 @@ function nextTurn(roomCode) {
  * @param {object} data       Game-specific setup payload
  * @returns {{ success: boolean, room?: object, error?: string }}
  */
-function submitSetup(roomCode, socketId, data) {
+async function submitSetup(roomCode, socketId, data) {
   const { room, error } = resolveRoom(roomCode);
   if (error) return { success: false, error };
 
@@ -250,7 +250,11 @@ function submitSetup(roomCode, socketId, data) {
   const { mod, error: modErr } = resolveModule(room);
   if (modErr) return { success: false, error: modErr };
 
-  const result = mod.handleSetup(room.gameData, socketId, data);
+  if (typeof mod.handleSetup !== "function") {
+    return { success: false, error: "Game module does not support setup." };
+  }
+
+  const result = await mod.handleSetup(room.gameData, socketId, data);
   if (!result.success) return result;
 
   return { success: true, room, ...result };
