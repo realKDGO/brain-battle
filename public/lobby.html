@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Battle - Lobby</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #fff;
+            padding: 40px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #e94560; font-size: 2.5em; margin-bottom: 5px; }
+        .meta { font-size: 1.2em; color: #a2a8d3; margin-bottom: 20px; }
+        .code-display {
+            background: #0f3460;
+            padding: 10px 30px;
+            font-size: 2em;
+            letter-spacing: 5px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            font-family: monospace;
+            border: 2px dashed #e94560;
+        }
+        .container {
+            background: #16213e;
+            width: 100%;
+            max-width: 500px;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        ul { list-style: none; padding: 0; }
+        li {
+            padding: 15px;
+            background: #1a1a2e;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .host-badge { background: #e94560; padding: 3px 8px; border-radius: 3px; font-size: 0.8em; }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.2em;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover { background: #d83a54; }
+        button:disabled { background: #555; cursor: not-allowed; }
+
+        /* Snackbar Element */
+        #snackbar {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #e94560;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            bottom: 30px;
+            font-size: 1em;
+            box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        #snackbar.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+    </style>
+</head>
+<body>
+    <h1>Lobby</h1>
+    <div class="meta" id="gameType">Loading Game...</div>
+    <div class="code-display" id="roomCode">------</div>
+
+    <div class="container">
+        <h3>Players (<span id="playerCount">0</span>/2)</h3>
+        <ul id="playerList"></ul>
+    </div>
+
+    <button id="startBtn" onclick="startGame()" style="display:none; width: 100%; max-width: 500px;">Start Game</button>
+
+    <!-- Snackbar Element -->
+    <div id="snackbar"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        function showError(msg) {
+            const sb = document.getElementById("snackbar");
+            sb.innerText = msg;
+            sb.className = "show";
+            setTimeout(() => { sb.className = sb.className.replace("show", ""); }, 3000);
+        }
+
+        const playerName = sessionStorage.getItem('playerName');
+        if (!playerName) window.location.href = 'index.html';
+
+        const params = new URLSearchParams(window.location.search);
+        const action = params.get('action'); // 'create' or 'join'
+        const gameType = params.get('game');
+        let roomCode = params.get('room');
+
+        if (!action || !gameType) window.location.href = 'select.html';
+
+        document.getElementById('gameType').innerText = gameType.replace('_', ' ');
+
+        const socket = io();
+        let myId = null;
+        let isHost = false;
+
+        socket.on('connect', () => {
+            myId = socket.id;
+            
+            if (action === 'create') {
+                socket.emit('createRoom', { playerName, gameType });
+            } else if (action === 'join' && roomCode) {
+                socket.emit('joinRoom', { roomCode, playerName, gameType });
+            } else {
+                showError("Invalid Navigation Parameters.");
+            }
+        });
+
+        socket.on('createRoomResponse', d => {
+            if (d.success) {
+                roomCode = d.roomCode;
+                document.getElementById('roomCode').innerText = roomCode;
+                isHost = true;
+                // Replace URL so refreshing doesn't create endless new rooms
+                window.history.replaceState({}, document.title, `?action=join&game=${gameType}&room=${roomCode}`);
+            } else {
+                showError(d.error);
+                setTimeout(() => window.location.href = 'select.html', 3000);
+            }
+        });
+
+        socket.on('joinRoomResponse', d => {
+            if (d.success) {
+                roomCode = d.roomCode;
+                document.getElementById('roomCode').innerText = roomCode;
+            } else {
+                showError(d.error);
+                setTimeout(() => window.location.href = 'select.html', 3000);
+            }
+        });
+
+        socket.on('roomUpdate', r => {
+            if (r.gameState !== "LOBBY") {
+                // Game Started! Navigate to the specific game page.
+                window.location.href = `game.html?room=${roomCode}&game=${gameType}`;
+                return;
+            }
+
+            document.getElementById('playerCount').innerText = r.players.length;
+            
+            const ul = document.getElementById('playerList');
+            ul.innerHTML = '';
+            r.players.forEach(p => {
+                const li = document.createElement('li');
+                li.innerText = p.name;
+                if (p.id === r.host) {
+                    const badge = document.createElement('span');
+                    badge.className = 'host-badge';
+                    badge.innerText = 'HOST';
+                    li.appendChild(badge);
+                }
+                // Check host status by comparing room.host to our own socket ID
+                if (r.host === myId) isHost = true;
+                ul.appendChild(li);
+            });
+
+            const startBtn = document.getElementById('startBtn');
+            if (isHost) {
+                startBtn.style.display = 'block';
+                // Only allow start if 2 players are present
+                startBtn.disabled = r.players.length < 2;
+                startBtn.innerText = r.players.length < 2 ? 'Waiting for Player...' : 'Start Game';
+            }
+        });
+
+        function startGame() {
+            if (!isHost || !roomCode) return;
+            socket.emit('startSetup');
+        }
+    </script>
+</body>
+</html>

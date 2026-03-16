@@ -91,25 +91,23 @@ io.on("connection", (socket) => {
   console.log(`[+] Connected:  ${socket.id}`);
 
   // ── createRoom ─────────────────────────────────────────────────────────────
-  socket.on("createRoom", (playerName) => {
+  socket.on("createRoom", ({ playerName, gameType } = {}) => {
     if (!playerName || typeof playerName !== "string" || !playerName.trim()) {
       return socket.emit("createRoomResponse", {
         success: false,
         error:   "A valid player name is required.",
       });
     }
+    if (!gameType || typeof gameType !== "string") {
+      return socket.emit("createRoomResponse", {
+        success: false,
+        error:   "A valid game type is required.",
+      });
+    }
 
-    const result = createRoom(socket.id, playerName.trim());
+    const result = createRoom(socket.id, playerName.trim(), gameType);
     if (result.success) {
       socket.join(result.roomCode);
-
-      // Default to WORD_CHAIN mode for this test app and auto-init gameData.
-      if (!result.room.gameMode) {
-         result.room.gameMode = GAME_MODE.WORD_CHAIN;
-         const { getGameModule } = require("./games/index");
-         const mod = getGameModule(GAME_MODE.WORD_CHAIN);
-         result.room.gameData = mod.init(result.room.players);
-      }
 
       socket.emit("createRoomResponse", { success: true, roomCode: result.roomCode });
       broadcastRoomUpdate(result.roomCode, result.room);
@@ -120,7 +118,7 @@ io.on("connection", (socket) => {
   });
 
   // ── joinRoom ───────────────────────────────────────────────────────────────
-  socket.on("joinRoom", ({ roomCode, playerName } = {}) => {
+  socket.on("joinRoom", ({ roomCode, playerName, gameType } = {}) => {
     if (!roomCode || typeof roomCode !== "string") {
       return socket.emit("joinRoomResponse", {
         success: false,
@@ -133,36 +131,49 @@ io.on("connection", (socket) => {
         error:   "A valid player name is required.",
       });
     }
+    if (!gameType || typeof gameType !== "string") {
+      return socket.emit("joinRoomResponse", {
+        success: false,
+        error:   "A valid game type is required.",
+      });
+    }
 
     const rCode = roomCode.toUpperCase();
     const existingRoom = getRoom(rCode);
     if (existingRoom) {
-        // Pre-emptively remove dead sockets to prevent 'Room is full' race conditions when refreshing
-        existingRoom.players = existingRoom.players.filter(p => io.sockets.sockets.has(p.id) || p.id === socket.id);
+        // Pre-emptively remove dead sockets to prevent 'Room is full' race conditions when refreshing.
+        // BUT if the game has started (in-progress), KEEP them so the player can reclaim the slot!
+        const inProgress = ['SETUP', 'ACTIVE', 'ROUND_END', 'GAME_END'].includes(existingRoom.gameState);
+        if (!inProgress) {
+            existingRoom.players = existingRoom.players.filter(p => io.sockets.sockets.has(p.id) || p.id === socket.id);
+        }
     }
 
-    const result = joinRoom(socket.id, rCode, playerName.trim());
+    const result = joinRoom(socket.id, rCode, playerName.trim(), gameType);
     if (result.success) {
       socket.join(result.roomCode);
 
-      // When player 2 joins, their gameData structure needs to be instantiated.
-      if (result.room.gameMode === GAME_MODE.WORD_CHAIN) {
-          const { getGameModule } = require("./games/index");
-          const mod = getGameModule(GAME_MODE.WORD_CHAIN);
-          // Re-init keeps previous choices for host but correctly sets up new player structure
-          // Actually, mod.init() resets everything. So let's smartly append the player to chains.
-          // Or just call a custom helper if needed. For now, since setup hasn't finished, this is safe:
-          if (!result.room.gameData.chains) {
-             result.room.gameData = mod.init(result.room.players);
-          } else {
-             // Add the new player to the existing chains state manually to preserve host selections
-             result.room.gameData.chains[socket.id] = { words: [], submitted: false, generatedWords: null };
-             result.room.gameData.guessProgress[socket.id] = null;
-             result.room.gameData.scores[socket.id] = 0;
-          }
+      // ── Remap gameData from the old socket ID to the new one ──────────────
+      // `result.oldId` is set by roomManager when a player reconnects by name.
+      const room = result.room;
+      const oldId = result.oldId;
+      if (oldId && room.gameData) {
+        if (room.gameData.chains && oldId in room.gameData.chains) {
+          room.gameData.chains[socket.id] = room.gameData.chains[oldId];
+          delete room.gameData.chains[oldId];
+        }
+        if (room.gameData.guessProgress && oldId in room.gameData.guessProgress) {
+          room.gameData.guessProgress[socket.id] = room.gameData.guessProgress[oldId];
+          delete room.gameData.guessProgress[oldId];
+        }
+        if (room.gameData.scores && oldId in room.gameData.scores) {
+          room.gameData.scores[socket.id] = room.gameData.scores[oldId];
+          delete room.gameData.scores[oldId];
+        }
+        console.log(`[Room] Remapped gameData for "${playerName}" from ${oldId} → ${socket.id}`);
       }
 
-      socket.emit("joinRoomResponse", { success: true, roomCode: result.roomCode });
+      socket.emit("joinRoomResponse", { success: true, roomCode: result.roomCode, hostId: result.room.host });
       broadcastRoomUpdate(result.roomCode, result.room);
       console.log(`[Room] "${playerName}" (${socket.id}) joined ${result.roomCode}`);
     } else {
@@ -183,39 +194,8 @@ io.on("connection", (socket) => {
   // GAME ENGINE EVENTS
   // ══════════════════════════════════════════════════════════════════════════
 
-  // ── setGameMode ────────────────────────────────────────────────────────────
-  // Client sends: { gameMode }  (one of GAME_MODE.*)
-  // Only the host can set the game mode, and only while WAITING.
-  socket.on("setGameMode", ({ gameMode } = {}) => {
-    const ctx = requireRoom(socket, "setGameMode");
-    if (!ctx) return;
-    const { roomCode, room } = ctx;
-
-    if (rejectIfNotHost(socket, room, "setGameMode")) return;
-
-    if (room.gameState !== "WAITING") {
-      return socket.emit("setGameModeResponse", {
-        success: false,
-        error:   "Game mode can only be changed while in WAITING state.",
-      });
-    }
-
-    const validModes = Object.values(GAME_MODE);
-    if (!validModes.includes(gameMode)) {
-      return socket.emit("setGameModeResponse", {
-        success: false,
-        error:   `Invalid game mode. Valid modes: ${validModes.join(", ")}`,
-      });
-    }
-
-    room.gameMode = gameMode;
-    socket.emit("setGameModeResponse", { success: true, gameMode });
-    broadcastRoomUpdate(roomCode, room);
-    console.log(`[Engine] ${roomCode} gameMode set to ${gameMode}`);
-  });
-
   // ── startSetup ─────────────────────────────────────────────────────────────
-  // Host triggers WAITING → SETUP.
+  // Host triggers LOBBY → SETUP.
   socket.on("startSetup", () => {
     const ctx = requireRoom(socket, "startSetup");
     if (!ctx) return;

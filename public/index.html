@@ -2,16 +2,82 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Word Chain - Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Battle - Welcome</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 20px; }
-        .btn { padding: 15px 30px; font-size: 18px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background: #eee; text-decoration: none; color: black; }
-        .btn:hover { background: #ddd; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+        h1 { color: #e94560; font-size: 3em; margin-bottom: 0.2em; }
+        .container {
+            background: #16213e;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+        input {
+            width: 90%;
+            padding: 12px;
+            margin: 20px 0;
+            border-radius: 5px;
+            border: 1px solid #0f3460;
+            background: #1a1a2e;
+            color: #fff;
+            font-size: 1.1em;
+            text-align: center;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.2em;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover { background: #d83a54; }
     </style>
 </head>
 <body>
-    <h1>Word Chain (Test Client)</h1>
-    <a href="host.html" class="btn">Create Room (Host)</a>
-    <a href="join.html" class="btn">Join Room (Guest)</a>
+    <h1>Brain Battle</h1>
+    <div class="container">
+        <h2>Enter Your Name</h2>
+        <input type="text" id="playerName" placeholder="Your Name" autocomplete="off" maxlength="15">
+        <button onclick="saveNameAndProceed()">Continue to Games</button>
+    </div>
+
+    <script>
+        // Prefix with focus
+        const nameInput = document.getElementById('playerName');
+        nameInput.focus();
+
+        nameInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') saveNameAndProceed();
+        });
+
+        function saveNameAndProceed() {
+            const name = nameInput.value.trim();
+            if (!name) {
+                alert("Please enter a name!");
+                return;
+            }
+            sessionStorage.setItem('playerName', name);
+            window.location.href = 'select.html';
+        }
+    </script>
 </body>
 </html>

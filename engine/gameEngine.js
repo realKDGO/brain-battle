@@ -68,7 +68,7 @@ function startSetup(roomCode) {
   const { room, error } = resolveRoom(roomCode);
   if (error) return { success: false, error };
 
-  if (room.gameState !== GAME_STATE.WAITING) {
+  if (room.gameState !== GAME_STATE.LOBBY) {
     return { success: false, error: `Cannot start setup from state "${room.gameState}".` };
   }
   if (!room.gameMode) {
@@ -179,11 +179,18 @@ function resetGame(roomCode) {
     return { success: false, error: `Cannot reset from state "${room.gameState}".` };
   }
 
-  room.gameMode  = null;
-  room.gameData  = {};
-  room.gameState = GAME_STATE.WAITING;
+  // Initialize game-specific data for a fresh round
+  const { getGameModule } = require("../games/index");
+  const mod = getGameModule(room.gameMode);
+  if (mod && mod.init) {
+    room.gameData = mod.init(room.players);
+  } else {
+    room.gameData = {};
+  }
 
-  console.log(`[Engine] ${roomCode} → WAITING (reset)`);
+  room.gameState = GAME_STATE.SETUP;
+
+  console.log(`[Engine] ${roomCode} → SETUP (reset)`);
   return { success: true, room };
 }
 

@@ -13,9 +13,21 @@
         .container { width: 100%; margin: auto; max-width: 900px; }
         
         #snackbar {
-            visibility: hidden; min-width: 250px; margin-left: -125px; background-color: #f44336; color: #fff;
-            text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1000;
-            left: 50%; bottom: 30px; font-weight: bold; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #e94560;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-weight: bold;
+            font-family: sans-serif;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         #snackbar.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
         @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
@@ -49,6 +61,12 @@
                     <input type="text" class="word-input" id="w7" placeholder="Word 7">
                 </div>
                 <button onclick="submitWords()">Submit Words</button>
+                <!-- Host-only: Start the guessing phase after both players submit -->
+                <div id="hostControls" style="display:none; margin-top:15px; border-top:1px solid #ccc; padding-top:10px;">
+                    <button id="startGameBtn" onclick="startGameNow()" disabled
+                        style="background:#2196F3;">Start Game</button>
+                    <small id="startGameHint" style="display:block; margin-top:5px; color:#888;">Waiting for both players to submit words...</small>
+                </div>
             </div>
 
             <!-- Active Phase -->
@@ -66,8 +84,13 @@
                     <input type="text" class="word-input" id="g7" readonly disabled>
                 </div>
                 
-                <h3 id="endMsg" style="color:red; display:none;"></h3>
-                <button onclick="submitGuess()">Submit Guess</button>
+                <div id="endGameContainer" style="display:none; margin-top:20px; padding:15px; background:#16213e; border-radius:8px; text-align:center;">
+                    <h3 id="endMsg" style="color:#e94560; margin-top:0;"></h3>
+                    <button id="restartBtn" onclick="restartGame()" style="display:none; background:#4CAF50; margin-top:10px;">Play Again</button>
+                    <small id="restartHint" style="display:none; margin-top:10px; color:#888;">Waiting for host to restart...</small>
+                </div>
+                
+                <button id="submitGuessBtn" onclick="submitGuess()">Submit Guess</button>
                 
                 <h3>Scores</h3>
                 <p>Your Score: <span id="myScore">0</span></p>
@@ -87,13 +110,24 @@
     <script>
         const socket = io();
         let myId = null;
+        let isHost = false;
 
         function showError(msg) {
             const sb = document.getElementById("snackbar");
+            sb.style.backgroundColor = '#e94560';
             sb.innerText = msg;
             sb.className = "show";
             setTimeout(() => { sb.className = sb.className.replace("show", ""); }, 3000);
         }
+
+        function showSuccess(msg) {
+            const sb = document.getElementById("snackbar");
+            sb.style.backgroundColor = '#2e7d32'; // Green
+            sb.innerText = msg;
+            sb.className = "show";
+            setTimeout(() => { sb.className = sb.className.replace("show", ""); }, 3000);
+        }
+
 
         function log(msg, data) {
             const l = document.getElementById('logs');
@@ -103,19 +137,19 @@
         }
 
         // Auto-join on load using URL params
+        const playerName = sessionStorage.getItem('playerName');
+        if (!playerName) window.location.href = 'index.html';
+
         const params = new URLSearchParams(window.location.search);
         const roomCodeParam = params.get('room');
-        const playerNameParam = params.get('name');
+        const gameTypeParam = params.get('game');
+
+        if (!roomCodeParam || !gameTypeParam) window.location.href = 'select.html';
 
         socket.on('connect', () => {
             myId = socket.id;
             log('Connected with ID:', myId);
-            
-            if (roomCodeParam && playerNameParam) {
-                socket.emit('joinRoom', { playerName: playerNameParam, roomCode: roomCodeParam });
-            } else {
-                log('ERROR:', 'Missing room or name parameters in URL.');
-            }
+            socket.emit('joinRoom', { playerName: playerName, roomCode: roomCodeParam, gameType: gameTypeParam });
         });
 
         // Emitters
@@ -127,9 +161,11 @@
             const words = [1,2,3,4,5,6,7].map(i => document.getElementById('w'+i).value.trim()).filter(Boolean);
             if(words.length !== 7) return showError("Please fill exactly 7 words");
             socket.emit('submitSetup', { data: { words } });
-            
-            // Clear inputs purely for visual reset per user request
-            [1,2,3,4,5,6,7].forEach(i => document.getElementById('w'+i).value = "");
+            // Do not clear inputs here; wait for server response
+        }
+
+        function startGameNow() {
+            socket.emit('startGame');
         }
 
         function submitGuess() {
@@ -155,6 +191,10 @@
                 guessedWord: guess,
                 data: { guess }
             });
+        }
+
+        function restartGame() {
+            socket.emit("resetGame");
         }
 
         // Enter key listeners and hint protection
@@ -196,12 +236,42 @@
             document.getElementById('gameState').innerText = r.gameState;
             document.getElementById('roomCode').innerText = roomCodeParam || "Unknown";
 
+            // Track host status
+            if (myId && r.host === myId) isHost = true;
+
             if (r.gameState === "ACTIVE") {
                document.getElementById('setupPanel').style.display = 'none';
                document.getElementById('activePanel').style.display = 'block';
             } else if (r.gameState === "SETUP") {
                document.getElementById('setupPanel').style.display = 'block';
                document.getElementById('activePanel').style.display = 'none';
+
+               // If we just came from GAME_END, reset the UI for a new round
+               const endCont = document.getElementById('endGameContainer');
+               if (endCont && endCont.style.display === 'block') {
+                   endCont.style.display = 'none';
+                   document.getElementById('submitGuessBtn').style.display = 'inline-block';
+                   document.getElementById('restartBtn').style.display = 'none';
+                   document.getElementById('restartHint').style.display = 'none';
+                   
+                   // Reset all text inputs
+                   document.querySelectorAll('input[type="text"]').forEach(i => {
+                       i.value = '';
+                       i.removeAttribute('data-hintlength');
+                   });
+               }
+
+               // Show host controls if we are the host
+               if (isHost) {
+                   document.getElementById('hostControls').style.display = 'block';
+               // Enable Start Game once both players have submitted
+                   const chains = r.gameData && r.gameData.chains;
+                   const bothSubmitted = chains && Object.values(chains).filter(c => c.submitted).length === 2;
+                   const btn = document.getElementById('startGameBtn');
+                   const hint = document.getElementById('startGameHint');
+                   btn.disabled = !bothSubmitted;
+                   hint.style.display = bothSubmitted ? 'none' : 'block';
+               }
             }
 
             if(r.gameData && r.gameData.scores && myId) {
@@ -209,7 +279,10 @@
             }
         });
 
-        socket.on('joinRoomResponse', d => log('joinRoomResponse', d));
+        socket.on('joinRoomResponse', d => {
+            log('joinRoomResponse', d);
+            if (d.success && d.hostId === myId) isHost = true;
+        });
         socket.on('submitSetupResponse', d => {
             log('submitSetupResponse', d);
             if (!d.success && d.error) {
@@ -217,6 +290,9 @@
             }
             if (d.words) {
                d.words.forEach((w, i) => document.getElementById('w' + (i+1)).value = w);
+            }
+            if (d.success && !d.words) {
+                showSuccess('Words submitted successfully!');
             }
         });
 
@@ -269,8 +345,10 @@
 
         socket.on('endGameResponse', d => {
             log('endGameResponse', d);
+            document.getElementById('endGameContainer').style.display = 'block';
+            document.getElementById('submitGuessBtn').style.display = 'none'; // Hide submit button
+            
             const msgEl = document.getElementById('endMsg');
-            msgEl.style.display = 'block';
             if (d.winner) {
                 msgEl.innerText = `${d.winner.name} wins!`;
             } else {
@@ -280,6 +358,12 @@
                const pIds = Object.keys(d.scores);
                const opId = pIds.find(id => id !== myId);
                if (opId) document.getElementById('opScore').innerText = d.scores[opId];
+            }
+
+            if (isHost) {
+                document.getElementById('restartBtn').style.display = 'inline-block';
+            } else {
+                document.getElementById('restartHint').style.display = 'block';
             }
         });
     </script>

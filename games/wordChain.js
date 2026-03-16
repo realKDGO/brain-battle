@@ -160,11 +160,19 @@ async function handleSetup(gameData, socketId, data) {
   for (let i = 0; i < validated.length - 1; i++) {
     const isValid = await isValidCompoundAPI(validated[i], validated[i + 1]);
     if (!isValid) {
+      const generated = generateWordChain();
       return { 
         success: false, 
-        error: `"${validated[i]}" and "${validated[i + 1]}" do not form a recognized compound phrase according to the dictionary.` 
+        error: `"${validated[i]}" and "${validated[i + 1]}" do not form a recognized compound phrase. The system has auto-generated a new set for you.`,
+        words: generated
       };
     }
+  }
+
+  // Defensive initialization in case fast reconnect dropped the specific mapping
+  if (!gameData.chains) gameData.chains = {};
+  if (!gameData.chains[socketId]) {
+    gameData.chains[socketId] = { words: [], submitted: false };
   }
 
   gameData.chains[socketId].words = validated;
@@ -172,7 +180,7 @@ async function handleSetup(gameData, socketId, data) {
 
   // ── Collision detection: did both players pick the exact same chain? ──────
   const opponentId = Object.keys(gameData.chains).find(id => id !== socketId);
-  if (opponentId && gameData.chains[opponentId].submitted) {
+  if (opponentId && gameData.chains[opponentId] && gameData.chains[opponentId].submitted) {
     const opponentWords = gameData.chains[opponentId].words;
     const isSame = opponentWords.length === validated.length &&
       validated.every((w, i) => w === opponentWords[i]);
@@ -212,6 +220,13 @@ function handleAction(gameData, currentPlayer, data) {
     return { success: false, error: 'Opponent has not submitted their word chain yet.' };
   }
 
+  if (!gameData.guessProgress) gameData.guessProgress = {};
+  if (!gameData.guessProgress[currentPlayer.id]) {
+    gameData.guessProgress[currentPlayer.id] = { currentIndex: 1, revealedCounts: [], mistakes: 0 };
+    // Start with 1 letter revealed for the first word
+    gameData.guessProgress[currentPlayer.id].revealedCounts[1] = 1; 
+  }
+
   const progress = gameData.guessProgress[currentPlayer.id];
   if (!progress) return { success: false, error: 'Game progress not initialised.' };
 
@@ -238,6 +253,7 @@ function handleAction(gameData, currentPlayer, data) {
         progress.revealedCounts[progress.currentIndex] = 1;
     }
 
+    if (!gameData.scores) gameData.scores = {};
     gameData.scores[currentPlayer.id] = progress.totalScore;
 
     return {

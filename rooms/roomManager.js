@@ -25,14 +25,14 @@ function generateRoomCode() {
  * @returns {{ success: true, roomCode: string, room: object }
  *          |{ success: false, error: string }}
  */
-function createRoom(socketId, playerName) {
+function createRoom(socketId, playerName, gameType) {
   const roomCode = generateRoomCode();
 
   rooms[roomCode] = {
     host: socketId,
     players: [{ id: socketId, name: playerName }],
-    gameMode: null,
-    gameState: "SETUP",
+    gameMode: gameType,
+    gameState: "LOBBY",
     gameData: {},
   };
 
@@ -44,16 +44,37 @@ function createRoom(socketId, playerName) {
  * @returns {{ success: true, roomCode: string, room: object }
  *          |{ success: false, error: string }}
  */
-function joinRoom(socketId, roomCode, playerName) {
+function joinRoom(socketId, roomCode, playerName, gameType) {
   const room = rooms[roomCode];
 
   if (!room) {
     return { success: false, error: "Room does not exist." };
   }
 
+  if (room.gameMode !== gameType) {
+    return { success: false, error: `This code is for a different game (${room.gameMode}). Please return to game selection.` };
+  }
+
   const alreadyIn = room.players.some((p) => p.id === socketId);
   if (alreadyIn) {
     return { success: false, error: "You are already in this room." };
+  }
+
+  // ── Reconnect by name (lobby → game.html page navigation) ────────────────
+  // When a player navigates between pages, their socket ID changes. During an
+  // in-progress game the old socket may still be alive briefly, making the room
+  // appear full. If the game has already started, allow a reconnect by matching
+  // the player name and replacing the stale socket ID in-place.
+  const inProgress = ['SETUP', 'ACTIVE', 'ROUND_END', 'GAME_END'].includes(room.gameState);
+  if (inProgress) {
+    const existingSlot = room.players.find((p) => p.name === playerName);
+    if (existingSlot) {
+      const oldId = existingSlot.id;
+      existingSlot.id = socketId; // Swap socket ID in-place
+      delete existingSlot.disconnected; // Clear disconnected flag
+      if (room.host === oldId) room.host = socketId; // Keep host status
+      return { success: true, roomCode, room, reconnected: true, oldId };
+    }
   }
 
   if (room.players.length >= 2) {
@@ -78,8 +99,20 @@ function leaveRoom(socketId) {
   if (!roomCode) return null;
 
   const room = rooms[roomCode];
+  const inProgress = ['SETUP', 'ACTIVE', 'ROUND_END', 'GAME_END'].includes(room.gameState);
 
-  // Remove the player
+  if (inProgress) {
+    // During an active game, don't remove the player object.
+    // They might just be navigating from lobby to game page.
+    // Instead, mark them disconnected. (They keep their slot for reconnecting).
+    const p = room.players.find(p => p.id === socketId);
+    if (p) p.disconnected = true;
+    
+    // Do NOT reassign host if the game is in progress (prevents stale host IDs)
+    return { roomCode, room };
+  }
+
+  // If LOBBY phase, it's safe to fully remove the player
   room.players = room.players.filter((p) => p.id !== socketId);
 
   // Room is now empty — clean it up
@@ -89,7 +122,7 @@ function leaveRoom(socketId) {
   }
 
   // Host left — promote the next player
-  if (room.host === socketId) {
+  if (room.host === socketId && room.players.length > 0) {
     room.host = room.players[0].id;
   }
 
