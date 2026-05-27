@@ -37,7 +37,8 @@ function generateWordChain() {
  * Returns just the revealed prefix for the input fields.
  */
 function buildRevealedWord(targetWord, revealedCount) {
-  return targetWord.substring(0, revealedCount);
+  // Pad with spaces up to targetWord.length so the client knows the intended word length for UI features like "Last Letter"
+  return targetWord.substring(0, revealedCount).padEnd(targetWord.length, ' ');
 }
 
 function buildRevealedWords(words, revealedCounts) {

@@ -3,80 +3,321 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brain Battle - Welcome</title>
+    <title>Brain Battle — Enter the Arena</title>
+    <meta name="description" content="Brain Battle — A multiplayer arcade word puzzle arena. Enter your name and challenge your friends.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #0A0A0F;
+            --surface: rgba(20, 20, 32, 0.7);
+            --surface-border: rgba(255, 45, 120, 0.15);
+            --neon-pink: #FF2D78;
+            --neon-lime: #A3FF12;
+            --neon-violet: #8B5CF6;
+            --neon-cyan: #00F0FF;
+            --text-primary: #F0F0F5;
+            --text-muted: #6B6B80;
+            --error: #FF4757;
+            --glow-pink: 0 0 20px rgba(255, 45, 120, 0.3), 0 0 60px rgba(255, 45, 120, 0.1);
+            --glow-lime: 0 0 20px rgba(163, 255, 18, 0.3), 0 0 60px rgba(163, 255, 18, 0.1);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1a1a2e;
-            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100vh;
-            margin: 0;
-            flex-direction: column;
+            overflow: hidden;
+            position: relative;
         }
-        h1 { color: #e94560; font-size: 3em; margin-bottom: 0.2em; }
-        .container {
-            background: #16213e;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+
+        /* Subtle radial gradient accent */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 600px 400px at 30% 20%, rgba(255, 45, 120, 0.06) 0%, transparent 70%),
+                radial-gradient(ellipse 500px 350px at 70% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* CRT Scanline overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.03) 2px,
+                rgba(0, 0, 0, 0.03) 4px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Floating particles */
+        .particles {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+            opacity: 0;
+            animation: float-up linear infinite;
+        }
+
+        .particle:nth-child(1) { left: 15%; animation-duration: 12s; animation-delay: 0s; background: var(--neon-pink); }
+        .particle:nth-child(2) { left: 35%; animation-duration: 15s; animation-delay: 2s; background: var(--neon-lime); }
+        .particle:nth-child(3) { left: 55%; animation-duration: 10s; animation-delay: 4s; background: var(--neon-violet); }
+        .particle:nth-child(4) { left: 75%; animation-duration: 14s; animation-delay: 1s; background: var(--neon-cyan); }
+        .particle:nth-child(5) { left: 90%; animation-duration: 11s; animation-delay: 3s; background: var(--neon-pink); }
+        .particle:nth-child(6) { left: 25%; animation-duration: 13s; animation-delay: 5s; background: var(--neon-lime); }
+        .particle:nth-child(7) { left: 65%; animation-duration: 16s; animation-delay: 0.5s; background: var(--neon-violet); }
+        .particle:nth-child(8) { left: 45%; animation-duration: 9s; animation-delay: 3.5s; background: var(--neon-cyan); }
+
+        @keyframes float-up {
+            0% { bottom: -10px; opacity: 0; transform: translateX(0); }
+            10% { opacity: 0.6; }
+            90% { opacity: 0.6; }
+            100% { bottom: 110vh; opacity: 0; transform: translateX(30px); }
+        }
+
+        .card {
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 48px 40px;
+            border-radius: 20px;
+            border: 1px solid var(--surface-border);
             text-align: center;
-            width: 100%;
-            max-width: 400px;
-        }
-        input {
             width: 90%;
-            padding: 12px;
-            margin: 20px 0;
-            border-radius: 5px;
-            border: 1px solid #0f3460;
-            background: #1a1a2e;
-            color: #fff;
+            max-width: 420px;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            transition: var(--transition);
+            /* Entrance animation */
+            animation: card-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes card-enter {
+            from { opacity: 0; transform: translateY(30px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        h1 {
+            font-weight: 900;
+            font-size: 2.6em;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, var(--neon-pink) 0%, var(--neon-violet) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            animation: title-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+            filter: drop-shadow(0 0 20px rgba(255, 45, 120, 0.3));
+        }
+
+        @keyframes title-enter {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            margin-bottom: 36px;
+            font-size: 0.95em;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            animation: subtitle-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+        }
+
+        @keyframes subtitle-enter {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+            animation: input-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+        }
+
+        @keyframes input-enter {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        input {
+            width: 100%;
+            padding: 16px 20px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            background: rgba(10, 10, 15, 0.6);
+            color: var(--text-primary);
             font-size: 1.1em;
             text-align: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            letter-spacing: 1px;
+            transition: var(--transition);
         }
+
+        input::placeholder {
+            color: var(--text-muted);
+            font-weight: 400;
+            letter-spacing: 0.5px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 0 4px rgba(255, 45, 120, 0.1), 0 0 20px rgba(255, 45, 120, 0.1);
+        }
+
+        input.error {
+            border-color: var(--error);
+            box-shadow: 0 0 0 4px rgba(255, 71, 87, 0.1);
+            animation: shake 0.4s ease-in-out;
+        }
+
         button {
             width: 100%;
-            padding: 12px;
-            background: #e94560;
-            color: white;
+            padding: 16px;
+            background: var(--neon-lime);
+            color: #0A0A0F;
             border: none;
-            border-radius: 5px;
+            border-radius: 12px;
             cursor: pointer;
-            font-size: 1.2em;
-            font-weight: bold;
-            transition: background 0.3s;
+            font-size: 1.05em;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: var(--transition);
+            box-shadow: 0 0 20px rgba(163, 255, 18, 0.15);
+            animation: btn-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.45s both;
         }
-        button:hover { background: #d83a54; }
+
+        @keyframes btn-enter {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        button:hover {
+            background: var(--neon-pink);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: var(--glow-pink);
+        }
+
+        button:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        /* Page transition */
+        .fade-out {
+            opacity: 0;
+            transform: scale(0.95);
+            transition: all 0.3s ease;
+        }
+
+        /* Decorative corner accents */
+        .card::before, .card::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-color: var(--neon-pink);
+            opacity: 0.3;
+        }
+
+        .card::before {
+            top: 12px;
+            left: 12px;
+            border-top: 2px solid;
+            border-left: 2px solid;
+        }
+
+        .card::after {
+            bottom: 12px;
+            right: 12px;
+            border-bottom: 2px solid;
+            border-right: 2px solid;
+        }
     </style>
 </head>
 <body>
-    <h1>Brain Battle</h1>
-    <div class="container">
-        <h2>Enter Your Name</h2>
-        <input type="text" id="playerName" placeholder="Your Name" autocomplete="off" maxlength="15">
-        <button onclick="saveNameAndProceed()">Continue to Games</button>
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <div class="card" id="mainCard">
+        <h1>Brain Battle</h1>
+        <p class="subtitle">Enter your name to join the arena</p>
+        <div class="input-group">
+            <input type="text" id="playerName" placeholder="Choose a name" autocomplete="off" maxlength="15">
+        </div>
+        <button id="continueBtn" onclick="saveNameAndProceed()">Continue</button>
     </div>
 
     <script>
-        // Prefix with focus
         const nameInput = document.getElementById('playerName');
+        const mainCard = document.getElementById('mainCard');
         nameInput.focus();
 
         nameInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') saveNameAndProceed();
         });
 
+        // Remove error state on typing
+        nameInput.addEventListener('input', function() {
+            this.classList.remove('error');
+        });
+
         function saveNameAndProceed() {
             const name = nameInput.value.trim();
             if (!name) {
-                alert("Please enter a name!");
+                nameInput.classList.add('error');
                 return;
             }
             sessionStorage.setItem('playerName', name);
-            window.location.href = 'select.html';
+            
+            // Subtle transition
+            mainCard.classList.add('fade-out');
+            setTimeout(() => {
+                window.location.href = 'select.html';
+            }, 300);
         }
     </script>
 </body>

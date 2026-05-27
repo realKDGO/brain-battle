@@ -3,135 +3,449 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brain Battle - Select Game</title>
+    <title>Brain Battle — Select Game</title>
+    <meta name="description" content="Choose your game mode in Brain Battle. Word Chain, Guess Number, Connect Letters, and more arcade word puzzles.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #0A0A0F;
+            --surface: rgba(20, 20, 32, 0.7);
+            --surface-solid: #141420;
+            --surface-border: rgba(255, 255, 255, 0.06);
+            --neon-pink: #FF2D78;
+            --neon-lime: #A3FF12;
+            --neon-violet: #8B5CF6;
+            --neon-cyan: #00F0FF;
+            --text-primary: #F0F0F5;
+            --text-muted: #6B6B80;
+            --error: #FF4757;
+            --glow-pink: 0 0 20px rgba(255, 45, 120, 0.3), 0 0 60px rgba(255, 45, 120, 0.1);
+            --glow-lime: 0 0 20px rgba(163, 255, 18, 0.3), 0 0 60px rgba(163, 255, 18, 0.1);
+            --glow-cyan: 0 0 20px rgba(0, 240, 255, 0.3), 0 0 60px rgba(0, 240, 255, 0.1);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --radius: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1a1a2e;
-            color: #fff;
-            padding: 40px;
-            margin: 0;
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-primary);
+            padding: 40px 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            min-height: 100vh;
+            position: relative;
         }
-        h1 { color: #e94560; font-size: 2.5em; margin-bottom: 5px; }
-        .welcome { font-size: 1.2em; color: #a2a8d3; margin-bottom: 40px; }
+
+        /* Radial gradient accent */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 600px 400px at 20% 10%, rgba(255, 45, 120, 0.05) 0%, transparent 70%),
+                radial-gradient(ellipse 500px 350px at 80% 90%, rgba(139, 92, 246, 0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 300px at 60% 30%, rgba(163, 255, 18, 0.03) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* CRT Scanline overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.03) 2px,
+                rgba(0, 0, 0, 0.03) 4px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        h1 {
+            font-weight: 900;
+            font-size: 2.4em;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, var(--neon-pink) 0%, var(--neon-violet) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 20px rgba(255, 45, 120, 0.3));
+            position: relative;
+            z-index: 1;
+            animation: fade-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .welcome {
+            font-size: 1.05em;
+            color: var(--neon-cyan);
+            margin-bottom: 40px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+            animation: fade-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+        }
+
+        @keyframes fade-slide-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
             width: 100%;
             max-width: 900px;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 1;
         }
-        .card {
-            background: #16213e;
-            padding: 25px;
-            border-radius: 10px;
-            text-align: center;
-            border: 2px solid transparent;
-            transition: all 0.3s;
-        }
-        .card:hover { border-color: #e94560; transform: translateY(-5px); }
-        h3 { margin-bottom: 10px; font-size: 1.5em; }
-        .unavailable { opacity: 0.5; pointer-events: none; }
-        input {
-            width: 80%;
-            padding: 8px;
-            margin: 10px 0;
-            border-radius: 5px;
-            border: 1px solid #0f3460;
-            background: #1a1a2e;
-            color: #fff;
-            text-align: center;
-        }
-        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
-        button {
-            padding: 10px 15px;
-            background: #0f3460;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.3s;
-            flex: 1;
-        }
-        .create-btn:hover { background: #e94560; }
-        .join-btn:hover { background: #e94560; }
 
-        /* Snackbar Element */
+        .card {
+            background: var(--surface);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 30px 24px;
+            border-radius: var(--radius);
+            text-align: center;
+            border: 1px solid var(--surface-border);
+            transition: var(--transition);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .card:nth-child(1) { animation: card-stagger 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+        .card:nth-child(2) { animation: card-stagger 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both; }
+        .card:nth-child(3) { animation: card-stagger 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.29s both; }
+        .card:nth-child(4) { animation: card-stagger 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.36s both; }
+        .card:nth-child(5) { animation: card-stagger 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.43s both; }
+
+        @keyframes card-stagger {
+            from { opacity: 0; transform: translateY(24px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .card:hover:not(.unavailable) {
+            transform: translateY(-6px);
+            border-color: rgba(255, 45, 120, 0.4);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(255, 45, 120, 0.1);
+        }
+
+        .card.selected {
+            border-color: var(--neon-lime);
+            box-shadow: 0 0 25px rgba(163, 255, 18, 0.15), 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .card.selected::after {
+            content: 'SELECTED';
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: var(--neon-lime);
+            color: #0A0A0F;
+            font-size: 0.6em;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .card.unavailable {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .card.unavailable:hover {
+            transform: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border-color: var(--surface-border);
+        }
+
+        .card.unavailable::after {
+            content: 'COMING SOON';
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: var(--text-muted);
+            color: var(--bg);
+            font-size: 0.55em;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .icon {
+            font-size: 2.8em;
+            margin-bottom: 14px;
+            filter: grayscale(0);
+            transition: var(--transition);
+        }
+
+        .card:hover:not(.unavailable) .icon {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 10px rgba(255, 45, 120, 0.3));
+        }
+
+        h3 {
+            margin: 0 0 8px 0;
+            font-weight: 700;
+            font-size: 1.2em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .card-desc {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.9em;
+            line-height: 1.5;
+            font-weight: 400;
+        }
+
+        .controls {
+            background: var(--surface);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 20px 24px;
+            border-radius: var(--radius);
+            border: 1px solid var(--surface-border);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            max-width: 520px;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            animation: fade-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
+        }
+
+        .controls input {
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            background: rgba(10, 10, 15, 0.6);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            width: 120px;
+            font-size: 1em;
+            transition: var(--transition);
+        }
+
+        .controls input::placeholder {
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 2px;
+        }
+
+        .controls input:focus {
+            outline: none;
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 0 4px rgba(0, 240, 255, 0.1), 0 0 15px rgba(0, 240, 255, 0.1);
+        }
+
+        button {
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            white-space: nowrap;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-size: 0.85em;
+        }
+
+        .host-btn {
+            background: var(--neon-pink);
+            color: white;
+            flex: 1;
+            box-shadow: 0 0 15px rgba(255, 45, 120, 0.15);
+        }
+
+        .host-btn:hover {
+            background: #ff1a6b;
+            transform: translateY(-2px);
+            box-shadow: var(--glow-pink);
+        }
+
+        .divider {
+            width: 1px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .join-btn {
+            background: var(--neon-lime);
+            color: #0A0A0F;
+            flex: 1;
+            box-shadow: 0 0 15px rgba(163, 255, 18, 0.15);
+        }
+
+        .join-btn:hover {
+            background: #96f000;
+            transform: translateY(-2px);
+            box-shadow: var(--glow-lime);
+        }
+
+        button:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        button:disabled {
+            background: var(--text-muted);
+            color: var(--bg);
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+            opacity: 0.4;
+        }
+
+        /* Snackbar */
         #snackbar {
             visibility: hidden;
             min-width: 250px;
-            background-color: #e94560;
+            background-color: rgba(20, 20, 32, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             color: #fff;
             text-align: center;
-            border-radius: 8px;
-            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            padding: 14px 24px;
             position: fixed;
-            z-index: 1;
-            bottom: 30px;
-            font-size: 1em;
-            box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
+            z-index: 10000;
             left: 50%;
+            bottom: 30px;
             transform: translateX(-50%);
+            font-weight: 600;
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 71, 87, 0.1);
         }
+
         #snackbar.show {
             visibility: visible;
-            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+            animation: snack-in 0.4s cubic-bezier(0.16, 1, 0.3, 1), snack-out 0.4s ease 2.5s;
         }
-        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+
+        @keyframes snack-in {
+            from { bottom: 0; opacity: 0; transform: translateX(-50%) translateY(10px); }
+            to { bottom: 30px; opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes snack-out {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        /* Back link */
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 24px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85em;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: var(--transition);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-link:hover {
+            color: var(--neon-pink);
+        }
+
+        .back-link::before {
+            content: '←';
+            font-size: 1.1em;
+        }
     </style>
 </head>
 <body>
-    <h1>Select a Game</h1>
-    <div class="welcome" id="welcomeText">Connecting...</div>
+    <a href="index.html" class="back-link">Back</a>
+
+    <h1>Select Game</h1>
+    <div class="welcome" id="welcomeText">Welcome back!</div>
 
     <div class="grid">
         <!-- Word Chain -->
-        <div class="card" id="card_WORD_CHAIN">
+        <div class="card selected" id="card_WORD_CHAIN" onclick="selectGame('WORD_CHAIN')">
+            <div class="icon">🔗</div>
             <h3>Word Chain</h3>
-            <p>Link compound words secretly!</p>
-            <div class="join-controls">
-                <input type="text" id="join_WORD_CHAIN" placeholder="Enter Room Code">
-            </div>
-            <div class="btn-group">
-                <button class="create-btn" onclick="hostGame('WORD_CHAIN')">Host</button>
-                <button class="join-btn" onclick="joinGame('WORD_CHAIN')">Join</button>
-            </div>
+            <p class="card-desc">Connect compound words to build the longest chain.</p>
         </div>
 
         <!-- Guess Number -->
         <div class="card unavailable">
+            <div class="icon">🔢</div>
             <h3>Guess Number</h3>
-            <p>Coming Soon</p>
+            <p class="card-desc">Find the secret number before your opponent does.</p>
         </div>
 
         <!-- Connect Letters -->
         <div class="card unavailable">
+            <div class="icon">✏️</div>
             <h3>Connect Letters</h3>
-            <p>Coming Soon</p>
+            <p class="card-desc">Form words by connecting adjacent letter tiles.</p>
         </div>
 
         <!-- Wordle -->
         <div class="card unavailable">
+            <div class="icon">🟩</div>
             <h3>Wordle Puzzle</h3>
-            <p>Coming Soon</p>
+            <p class="card-desc">The classic word-guessing duel. 5 letters, 6 tries.</p>
         </div>
 
         <!-- Dingbats -->
         <div class="card unavailable">
+            <div class="icon">💡</div>
             <h3>Dingbats</h3>
-            <p>Coming Soon</p>
+            <p class="card-desc">Solve visual word puzzles and rebus riddles.</p>
         </div>
     </div>
 
-    <!-- Snackbar Element -->
+    <div class="controls">
+        <button class="host-btn" id="hostBtn" onclick="onHostClick()">Host Game</button>
+        <div class="divider"></div>
+        <input type="text" id="roomCodeInput" placeholder="CODE" maxlength="6">
+        <button class="join-btn" onclick="onJoinClick()">Join Game</button>
+    </div>
+
     <div id="snackbar"></div>
 
     <script>
+        let selectedGame = 'WORD_CHAIN';
+
         function showError(msg) {
             const sb = document.getElementById("snackbar");
             sb.innerText = msg;
@@ -141,19 +455,31 @@
 
         const playerName = sessionStorage.getItem('playerName');
         if (!playerName) {
-            window.location.href = 'index.html'; // Redirect if no name
+            window.location.href = 'index.html';
         }
 
         document.getElementById('welcomeText').innerText = `Welcome, ${playerName}!`;
 
-        function hostGame(gameType) {
-            window.location.href = `lobby.html?action=create&game=${gameType}`;
+        function selectGame(gameType) {
+            // In this version, only WORD_CHAIN is available
+            if (gameType !== 'WORD_CHAIN') return;
+            
+            selectedGame = gameType;
+            // Visual update
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+            document.getElementById(`card_${gameType}`).classList.add('selected');
         }
 
-        function joinGame(gameType) {
-            const roomCode = document.getElementById(`join_${gameType}`).value.trim().toUpperCase();
+        function onHostClick() {
+            if (!selectedGame) return showError("Please select a game!");
+            window.location.href = `lobby.html?action=create&game=${selectedGame}`;
+        }
+
+        function onJoinClick() {
+            if (!selectedGame) return showError("Please select a game!");
+            const roomCode = document.getElementById('roomCodeInput').value.trim().toUpperCase();
             if(!roomCode) return showError("Enter a Room Code!");
-            window.location.href = `lobby.html?action=join&game=${gameType}&room=${roomCode}`;
+            window.location.href = `lobby.html?action=join&game=${selectedGame}&room=${roomCode}`;
         }
     </script>
 </body>

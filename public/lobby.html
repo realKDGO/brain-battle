@@ -3,102 +3,388 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brain Battle - Lobby</title>
+    <title>Brain Battle — Lobby</title>
+    <meta name="description" content="Brain Battle game lobby. Share the room code and wait for your opponent to join.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #0A0A0F;
+            --surface: rgba(20, 20, 32, 0.7);
+            --surface-border: rgba(255, 255, 255, 0.06);
+            --neon-pink: #FF2D78;
+            --neon-lime: #A3FF12;
+            --neon-violet: #8B5CF6;
+            --neon-cyan: #00F0FF;
+            --text-primary: #F0F0F5;
+            --text-muted: #6B6B80;
+            --error: #FF4757;
+            --glow-pink: 0 0 20px rgba(255, 45, 120, 0.3), 0 0 60px rgba(255, 45, 120, 0.1);
+            --glow-lime: 0 0 20px rgba(163, 255, 18, 0.3), 0 0 60px rgba(163, 255, 18, 0.1);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --radius: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1a1a2e;
-            color: #fff;
-            padding: 40px;
-            margin: 0;
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-primary);
+            padding: 40px 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
+            min-height: 100vh;
+            position: relative;
         }
-        h1 { color: #e94560; font-size: 2.5em; margin-bottom: 5px; }
-        .meta { font-size: 1.2em; color: #a2a8d3; margin-bottom: 20px; }
-        .code-display {
-            background: #0f3460;
-            padding: 10px 30px;
-            font-size: 2em;
-            letter-spacing: 5px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            font-family: monospace;
-            border: 2px dashed #e94560;
+
+        /* Radial gradient accent */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 600px 400px at 50% 30%, rgba(139, 92, 246, 0.06) 0%, transparent 70%),
+                radial-gradient(ellipse 500px 350px at 30% 70%, rgba(255, 45, 120, 0.04) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
         }
-        .container {
-            background: #16213e;
+
+        /* CRT Scanline overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.03) 2px,
+                rgba(0, 0, 0, 0.03) 4px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .lobby-card {
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid var(--surface-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
             width: 100%;
-            max-width: 500px;
-            border-radius: 10px;
-            padding: 30px;
-            margin-bottom: 30px;
+            max-width: 460px;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            animation: card-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
-        ul { list-style: none; padding: 0; }
-        li {
-            padding: 15px;
-            background: #1a1a2e;
-            margin-bottom: 10px;
-            border-radius: 5px;
+
+        @keyframes card-enter {
+            from { opacity: 0; transform: translateY(24px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Corner accents */
+        .lobby-card::before, .lobby-card::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-color: var(--neon-violet);
+            opacity: 0.3;
+        }
+
+        .lobby-card::before {
+            top: 12px;
+            left: 12px;
+            border-top: 2px solid;
+            border-left: 2px solid;
+        }
+
+        .lobby-card::after {
+            bottom: 12px;
+            right: 12px;
+            border-bottom: 2px solid;
+            border-right: 2px solid;
+        }
+
+        h2 {
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: var(--neon-pink);
+            margin: 0 0 6px 0;
+            font-weight: 700;
+            animation: fade-in 0.5s 0.1s both;
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .game-title {
+            font-weight: 900;
+            font-size: 1.8em;
+            margin-bottom: 30px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--neon-lime);
+            text-shadow: 0 0 20px rgba(163, 255, 18, 0.3);
+            animation: fade-in 0.5s 0.15s both;
+        }
+
+        .room-code-section {
+            background: rgba(10, 10, 15, 0.5);
+            padding: 20px;
+            border-radius: 14px;
+            margin-bottom: 32px;
+            border: 2px dashed rgba(0, 240, 255, 0.25);
+            position: relative;
+            animation: fade-in 0.5s 0.2s both;
+        }
+
+        .label {
+            font-size: 0.7em;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .code {
+            font-size: 2.5em;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            letter-spacing: 6px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+        }
+
+        .players-section {
+            text-align: left;
+            margin-bottom: 28px;
+            animation: fade-in 0.5s 0.25s both;
+        }
+
+        .section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
-        .host-badge { background: #e94560; padding: 3px 8px; border-radius: 3px; font-size: 0.8em; }
+
+        .section-header h3 {
+            margin: 0;
+            font-size: 1em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .count {
+            color: var(--text-muted);
+            font-size: 0.85em;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            padding: 12px 16px;
+            background: rgba(10, 10, 15, 0.4);
+            margin-bottom: 8px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            transition: var(--transition);
+        }
+
+        li:hover {
+            border-color: rgba(255, 255, 255, 0.08);
+            background: rgba(10, 10, 15, 0.6);
+        }
+
+        .player-name {
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .badge {
+            background: rgba(255, 45, 120, 0.15);
+            color: var(--neon-pink);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border: 1px solid rgba(255, 45, 120, 0.2);
+        }
+
         button {
             width: 100%;
-            padding: 15px;
-            background: #e94560;
-            color: white;
+            padding: 16px;
+            background: var(--neon-lime);
+            color: #0A0A0F;
             border: none;
-            border-radius: 5px;
+            border-radius: 12px;
             cursor: pointer;
-            font-size: 1.2em;
-            font-weight: bold;
-            transition: background 0.3s;
+            font-size: 1em;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: var(--transition);
+            margin-top: 8px;
+            box-shadow: 0 0 20px rgba(163, 255, 18, 0.15);
+            animation: fade-in 0.5s 0.3s both;
         }
-        button:hover { background: #d83a54; }
-        button:disabled { background: #555; cursor: not-allowed; }
 
-        /* Snackbar Element */
+        button:hover:not(:disabled) {
+            background: #96f000;
+            transform: translateY(-2px);
+            box-shadow: var(--glow-lime);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0) scale(0.98);
+        }
+
+        button:disabled {
+            background: var(--text-muted);
+            color: var(--bg);
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+            opacity: 0.4;
+            animation: pulse-wait 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-wait {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.55; }
+        }
+
+        /* Snackbar */
         #snackbar {
             visibility: hidden;
             min-width: 250px;
-            background-color: #e94560;
+            background-color: rgba(20, 20, 32, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             color: #fff;
             text-align: center;
-            border-radius: 8px;
-            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            padding: 14px 24px;
             position: fixed;
-            z-index: 1;
-            bottom: 30px;
-            font-size: 1em;
-            box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
+            z-index: 10000;
             left: 50%;
+            bottom: 30px;
             transform: translateX(-50%);
+            font-weight: 600;
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 71, 87, 0.1);
         }
+
         #snackbar.show {
             visibility: visible;
-            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+            animation: snack-in 0.4s cubic-bezier(0.16, 1, 0.3, 1), snack-out 0.4s ease 2.5s;
         }
-        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+
+        @keyframes snack-in {
+            from { bottom: 0; opacity: 0; transform: translateX(-50%) translateY(10px); }
+            to { bottom: 30px; opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes snack-out {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        /* Back link */
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 24px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.85em;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: var(--transition);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-link:hover {
+            color: var(--neon-pink);
+        }
+
+        .back-link::before {
+            content: '←';
+            font-size: 1.1em;
+        }
+
+        /* Waiting dots animation */
+        .waiting-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
     </style>
 </head>
 <body>
-    <h1>Lobby</h1>
-    <div class="meta" id="gameType">Loading Game...</div>
-    <div class="code-display" id="roomCode">------</div>
+    <a href="select.html" class="back-link">Back</a>
 
-    <div class="container">
-        <h3>Players (<span id="playerCount">0</span>/2)</h3>
-        <ul id="playerList"></ul>
+    <div class="lobby-card">
+        <h2>Lobby</h2>
+        <div class="game-title" id="gameType">WORD CHAIN</div>
+
+        <div class="room-code-section">
+            <div class="label">ROOM CODE</div>
+            <div class="code" id="roomCode">------</div>
+        </div>
+
+        <div class="players-section">
+            <div class="section-header">
+                <h3>Players</h3>
+                <span class="count" id="playerCount">0/2</span>
+            </div>
+            <ul id="playerList">
+                <!-- Players will be added here -->
+            </ul>
+        </div>
+
+        <button id="startBtn" onclick="startGame()" style="display:none;">Start Game</button>
     </div>
 
-    <button id="startBtn" onclick="startGame()" style="display:none; width: 100%; max-width: 500px;">Start Game</button>
-
-    <!-- Snackbar Element -->
     <div id="snackbar"></div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -114,7 +400,7 @@
         if (!playerName) window.location.href = 'index.html';
 
         const params = new URLSearchParams(window.location.search);
-        const action = params.get('action'); // 'create' or 'join'
+        const action = params.get('action');
         const gameType = params.get('game');
         let roomCode = params.get('room');
 
@@ -143,7 +429,6 @@
                 roomCode = d.roomCode;
                 document.getElementById('roomCode').innerText = roomCode;
                 isHost = true;
-                // Replace URL so refreshing doesn't create endless new rooms
                 window.history.replaceState({}, document.title, `?action=join&game=${gameType}&room=${roomCode}`);
             } else {
                 showError(d.error);
@@ -163,25 +448,29 @@
 
         socket.on('roomUpdate', r => {
             if (r.gameState !== "LOBBY") {
-                // Game Started! Navigate to the specific game page.
                 window.location.href = `game.html?room=${roomCode}&game=${gameType}`;
                 return;
             }
 
-            document.getElementById('playerCount').innerText = r.players.length;
+            document.getElementById('playerCount').innerText = `${r.players.length}/2`;
             
             const ul = document.getElementById('playerList');
             ul.innerHTML = '';
             r.players.forEach(p => {
                 const li = document.createElement('li');
-                li.innerText = p.name;
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'player-name';
+                nameSpan.innerText = p.name;
+                li.appendChild(nameSpan);
+
                 if (p.id === r.host) {
                     const badge = document.createElement('span');
-                    badge.className = 'host-badge';
-                    badge.innerText = 'HOST';
+                    badge.className = 'badge';
+                    badge.innerHTML = '👑 <span>HOST</span>';
                     li.appendChild(badge);
                 }
-                // Check host status by comparing room.host to our own socket ID
+                
                 if (r.host === myId) isHost = true;
                 ul.appendChild(li);
             });
@@ -189,9 +478,8 @@
             const startBtn = document.getElementById('startBtn');
             if (isHost) {
                 startBtn.style.display = 'block';
-                // Only allow start if 2 players are present
                 startBtn.disabled = r.players.length < 2;
-                startBtn.innerText = r.players.length < 2 ? 'Waiting for Player...' : 'Start Game';
+                startBtn.innerText = r.players.length < 2 ? 'Waiting for players...' : 'Start Game';
             }
         });
 
