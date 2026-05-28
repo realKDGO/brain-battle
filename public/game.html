@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brain Battle — Word Chain</title>
-    <meta name="description" content="Brain Battle Word Chain game. Connect compound words and outscore your opponent.">
+    <meta name="description" content="Brain Battle Word Chain game. Build a 7-word compound chain, then guess your opponent's hidden words to score points.">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -331,6 +331,11 @@
             20%, 40%, 60%, 80% { transform: translateX(-4px); }
             10%, 30%, 50%, 70%, 90% { transform: translateX(4px); }
         }
+        @keyframes shakePink {
+            0%, 100% { transform: translateX(0); }
+            20%, 40%, 60%, 80% { transform: translateX(-5px); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(5px); }
+        }
         @keyframes flashRed {
             0%, 100% { background-color: rgba(10, 10, 15, 0.6); }
             50% { background-color: rgba(255, 71, 87, 0.3); }
@@ -345,9 +350,22 @@
 
         .animate-blink { animation: blink 0.4s ease-in-out 2; }
         .animate-shake { animation: shake 0.4s ease-in-out; }
+        .animate-shake-pink { animation: shakePink 0.45s ease-in-out; }
         .animate-error { animation: shake 0.4s ease-in-out, flashRed 0.4s ease; }
         .animate-typing { animation: typing 0.1s ease-out; }
         .animate-pop { animation: pop 0.3s ease-in-out; }
+
+        /* Plural rejection: cubes flash neon pink during shake */
+        .cube-row.plural-reject .cube.filled .cube-input,
+        .cube-row.plural-reject .cube.correct .cube-input {
+            color: var(--neon-pink) !important;
+        }
+        .cube-row.plural-reject .cube.filled,
+        .cube-row.plural-reject .cube.correct {
+            border-color: var(--neon-pink) !important;
+            background-color: rgba(255, 45, 120, 0.15) !important;
+            box-shadow: 0 0 12px rgba(255, 45, 120, 0.25) !important;
+        }
 
         #endGameContainer {
             background: var(--surface);
@@ -484,8 +502,104 @@
                 width: 40px;
             }
             .grid-container {
+                /* Equal padding on both sides keeps the tile grid centred on screen.
+                   The right padding also reserves room for the score label. */
+                padding-left: 45px;
                 padding-right: 45px;
             }
+        }
+
+        /* Compound Dialog Overlay */
+        #compoundDialogOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #compoundDialogOverlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .dialog-card {
+            background: var(--surface);
+            border: 1px solid var(--neon-pink);
+            box-shadow: 0 0 30px rgba(255, 45, 120, 0.2);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+
+        #compoundDialogOverlay.show .dialog-card {
+            transform: scale(1);
+        }
+
+        .dialog-card h3 {
+            color: var(--neon-pink);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            font-size: 1.2em;
+        }
+
+        .dialog-card p {
+            color: var(--text-primary);
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .dialog-words {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--neon-lime);
+            font-weight: 700;
+            font-size: 1.1em;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 24px;
+            letter-spacing: 1px;
+        }
+
+        .dialog-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .tooltip-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip-wrapper:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: rgba(20, 20, 32, 0.95);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            white-space: nowrap;
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 2010;
         }
     </style>
     <script src="/socket.io/socket.io.js"></script>
@@ -504,7 +618,7 @@
             <div id="setupRows"></div>
             <div class="actions">
                 <button class="secondary-btn" onclick="autoGenerate()">Auto</button>
-                <button class="primary-btn" onclick="submitWords()">Submit</button>
+                <button class="primary-btn" onclick="guardedSubmit(submitWords)">Submit</button>
             </div>
             <div id="hostSetupHint" class="host-bar" style="display:none;">
                 Waiting for players...
@@ -516,7 +630,7 @@
         <div id="activeView" class="grid-container" style="display: none;">
             <div id="activeRows"></div>
             <div class="actions" id="activeActions">
-                <button id="submitGuessBtn" class="primary-btn" onclick="submitGuess()" style="width: 100%;">Submit Guess</button>
+                <button id="submitGuessBtn" class="primary-btn" onclick="guardedSubmit(submitGuess)" style="width: 100%;">Submit Guess</button>
             </div>
             <div id="gameBottomStats" class="stats" style="margin-top: 36px; display: none;">
                 <div class="stat-item">
@@ -545,9 +659,24 @@
             </div>
             <div style="display: flex; gap: 12px; margin-top: 15px; width: 100%;">
                 <button id="restartBtn" class="success-btn" onclick="restartGame()" style="display:none; flex: 1;">Play Again</button>
+                <div id="restartHint" style="display:none; flex: 1; padding: 12px 16px; border-radius: 8px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.25); color: var(--neon-violet); font-size: 0.78em; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; text-align: center; align-items: center; justify-content: center;">Waiting for host…</div>
                 <button class="secondary-btn" onclick="window.location.href='select.html'" style="flex: 1;">Game Selection</button>
             </div>
-            <div id="restartHint" class="host-bar" style="display:none; margin-top: 15px;">Waiting for host...</div>
+        </div>
+
+        <!-- COMPOUND VALIDATION DIALOG -->
+        <div id="compoundDialogOverlay">
+            <div class="dialog-card">
+                <h3>Invalid Compound</h3>
+                <p>The following words do not form a recognized compound phrase.</p>
+                <div class="dialog-words" id="dialogInvalidWords"></div>
+                <div class="dialog-actions">
+                    <button class="secondary-btn" onclick="closeCompoundDialog()">Fix</button>
+                    <div class="tooltip-wrapper" data-tooltip="Auto generate a new set of words">
+                        <button class="primary-btn" onclick="closeCompoundDialog(); autoGenerate();">Auto Generate</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -631,6 +760,7 @@
                 input.maxLength = 1;
                 input.type = 'text';
                 input.autocomplete = 'off';
+                input.setAttribute('enterkeyhint', 'send');
                 cube.appendChild(input);
                 wrapper.appendChild(cube);
             }
@@ -690,6 +820,10 @@
                             nextInput.focus();
                         }
                     }
+                    if (currentPhase === 'SETUP') {
+                        const rowIdx = this.parentElement.id.split('_')[1];
+                        handleSetupInputDebounce(rowIdx);
+                    }
                 });
 
                 input.addEventListener('keydown', function(e) {
@@ -727,11 +861,14 @@
                             this.parentElement.classList.add('active-indicator');
                             updateLastLetterState();
                             e.preventDefault();
+                            if (currentPhase === 'SETUP') {
+                                const rowIdx = this.parentElement.id.split('_')[1];
+                                handleSetupInputDebounce(rowIdx);
+                            }
                         }
                     } else if (e.key === 'Enter') {
+                        // Handled by the global keyup listener to avoid double-fire
                         e.preventDefault();
-                        if (currentPhase === 'SETUP') submitWords();
-                        else submitGuess();
                     }
                 });
             });
@@ -759,11 +896,18 @@
             }
         }
 
-        function triggerRowShake(rowIdx) {
+        function triggerRowShake(rowIdx, pink = false) {
             const row = document.getElementById(`g_row_${rowIdx}`) || document.getElementById(`w_row_${rowIdx}`);
             if (row) {
-                row.classList.add('animate-shake');
-                setTimeout(() => row.classList.remove('animate-shake'), 400);
+                if (pink) {
+                    row.classList.add('animate-shake-pink', 'plural-reject');
+                    setTimeout(() => {
+                        row.classList.remove('animate-shake-pink', 'plural-reject');
+                    }, 500);
+                } else {
+                    row.classList.add('animate-shake');
+                    setTimeout(() => row.classList.remove('animate-shake'), 400);
+                }
             }
         }
 
@@ -845,11 +989,47 @@
             socket.emit('submitSetup', { data: { autoGenerate: true } });
         }
 
+        // Words that end in 's' but are NOT plurals — allowed
+        const ALLOWED_S_WORDS = new Set([
+            'grass','boss','loss','toss','cross','glass','class','pass','mass','brass',
+            'dress','press','stress','bless','chess','guess','mess','miss','kiss','bliss',
+            'plus','bus','focus','status','campus','bonus','census','chorus','virus',
+            'iris','axis','basis','crisis','thesis','radius','genius','terminus',
+            'walrus','cactus','nexus','lexus','exodus','circus','mucus','hiatus',
+            'abacus','ruckus','caucus','callus','corpus','rebus','anus','sinus',
+            'cosmos','chaos','pathos','ethos','logos','kudos','truss','fuss','puss',
+            'moss','toss','loss','boss','cross','across'
+        ]);
+
+        function isLikelyPlural(word) {
+            const w = word.toLowerCase();
+            if (w.length <= 3) return false;
+            if (!w.endsWith('s')) return false;
+            if (ALLOWED_S_WORDS.has(w)) return false;
+            // Allow -ss endings (not plurals)
+            if (w.endsWith('ss')) return false;
+            // Allow -us endings (Latin-origin, usually not plurals in this game context)
+            if (w.endsWith('us')) return false;
+            // Allow -is endings
+            if (w.endsWith('is')) return false;
+            // Allow -as endings
+            if (w.endsWith('as')) return false;
+            // Allow -os endings
+            if (w.endsWith('os')) return false;
+            return true;
+        }
+
         function submitWords() {
             const words = [];
             for (let i = 0; i < 7; i++) {
-                const w = getRowWord('w', i);
-                if (w.length < 3) return showNotification(`Row ${i+1} short`, 'error');
+                const w = getRowWord('w', i).toLowerCase();
+                if (w.length < 2) return showNotification(`Row ${i+1}: word too short`, 'error');
+                // Client-side plural check
+                if (isLikelyPlural(w)) {
+                    triggerRowShake(i, true);
+                    showNotification('No Plurals', 'error');
+                    return;
+                }
                 words.push(w);
             }
             socket.emit('submitSetup', { data: { words } });
@@ -913,15 +1093,51 @@
             }
         });
 
+        function closeCompoundDialog() {
+            document.getElementById('compoundDialogOverlay').classList.remove('show');
+        }
+
+        let setupTypingTimer;
+        function handleSetupInputDebounce(rowIdx) {
+            if (currentPhase !== 'SETUP') return;
+            clearTimeout(setupTypingTimer);
+            setupTypingTimer = setTimeout(() => {
+                const word = getRowWord('w', rowIdx).toLowerCase();
+                if (word.length >= 2) {
+                    socket.emit('validateSetupWord', { word, index: rowIdx });
+                }
+            }, 600);
+        }
+
         socket.on('submitSetupResponse', d => {
             if (!d.success) {
-                showNotification(d.error, 'error');
-                triggerRowShake(0);
+                if (d.invalidCompound) {
+                    const idx1 = d.invalidCompound.index1;
+                    const idx2 = d.invalidCompound.index2;
+                    triggerRowShake(idx1, true);
+                    triggerRowShake(idx2, true);
+                    document.getElementById('dialogInvalidWords').innerText = `${d.invalidCompound.word1.toUpperCase()} + ${d.invalidCompound.word2.toUpperCase()}`;
+                    document.getElementById('compoundDialogOverlay').classList.add('show');
+                } else {
+                    showNotification(d.error, 'error');
+                    triggerRowShake(0);
+                }
             }
             if (d.words) {
                 d.words.forEach((w, i) => setRowWord('w', i, w, 'filled'));
             }
             if (d.success && !d.words) showNotification('Words Submitted!', 'success');
+        });
+
+        socket.on('validateSetupWordResponse', d => {
+            if (!d.valid) {
+                triggerRowShake(d.index, true);
+                if (d.error && d.error.includes('plural')) {
+                    showNotification('No Plurals', 'error');
+                } else {
+                    showNotification('Check Spelling', 'error');
+                }
+            }
         });
 
         socket.on('gameStarted', d => {
@@ -953,6 +1169,8 @@
         socket.on('submitActionResponse', d => {
             const row = document.getElementById(`g_row_${activeGuessingIdx}`);
             if (!d.success) {
+                // Silently swallow duplicate-submit errors
+                if (d.error === 'duplicate') return;
                 // Apply error animation to all cubes in the active row
                 row.querySelectorAll('.cube').forEach(c => {
                     c.classList.add('animate-error');
@@ -1033,10 +1251,31 @@
             }
             
             if (isHost) document.getElementById('restartBtn').style.display = 'block';
-            else document.getElementById('restartHint').style.display = 'block';
+            else document.getElementById('restartHint').style.display = 'flex';
         });
 
         initGrids();
+
+        // Single submit guard — prevents double-fire from keydown + keyup or rapid taps
+        let _submitPending = false;
+        function guardedSubmit(fn) {
+            if (_submitPending) return;
+            _submitPending = true;
+            fn();
+            setTimeout(() => { _submitPending = false; }, 600);
+        }
+
+        // Mobile keyboards often fire keyup but not keydown for the Return/Send key.
+        // This global listener is the ONLY place Enter triggers a submit.
+        document.addEventListener('keyup', function(e) {
+            if (e.key !== 'Enter') return;
+            const tag = document.activeElement && document.activeElement.tagName;
+            // Only act if focus is on a cube input (not a button etc.)
+            if (tag === 'INPUT') {
+                if (currentPhase === 'SETUP') guardedSubmit(submitWords);
+                else if (currentPhase === 'ACTIVE') guardedSubmit(submitGuess);
+            }
+        });
     </script>
 </body>
 </html>

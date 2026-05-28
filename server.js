@@ -229,9 +229,38 @@ io.on("connection", (socket) => {
       // Still broadcast room state so the game can proceed
       broadcastRoomUpdate(roomCode, result.room);
     } else {
-      socket.emit("submitSetupResponse", { success: result.success, error: result.error, words: result.words });
+      socket.emit("submitSetupResponse", { success: result.success, error: result.error, words: result.words, invalidCompound: result.invalidCompound });
       if (result.success) broadcastRoomUpdate(roomCode, result.room);
     }
+  });
+
+  // ── validateSetupWord ──────────────────────────────────────────────────────
+  // Client instantly asks to check a single word's spelling and validity
+  socket.on("validateSetupWord", async ({ word, index }) => {
+    const roomCode = findRoomBySocket(socket.id);
+    if (!roomCode) return;
+    const room = getRoom(roomCode);
+    if (!room) return;
+
+    const { getGameModule } = require("./games/index");
+    const mod = getGameModule(room.gameMode);
+    if (!mod || !mod.validateWord) return;
+
+    // 1. Basic format and plural check
+    const res = mod.validateWord(word);
+    if (!res.valid) {
+      return socket.emit("validateSetupWordResponse", { index, valid: false, error: res.error });
+    }
+
+    // 2. Dictionary check
+    if (mod.isValidWordAPI) {
+      const exists = await mod.isValidWordAPI(res.word);
+      if (!exists) {
+        return socket.emit("validateSetupWordResponse", { index, valid: false, error: `"${res.word}" is not a recognized word.` });
+      }
+    }
+
+    socket.emit("validateSetupWordResponse", { index, valid: true, word: res.word });
   });
 
   // ── startGame ──────────────────────────────────────────────────────────────

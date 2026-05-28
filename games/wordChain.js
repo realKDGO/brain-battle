@@ -1,11 +1,24 @@
 // games/wordChain.js
 // Word Chain — 1v1 Simultaneous Multiplayer
+// Players build a 7-word compound chain, then race to guess each other's hidden words.
+// Points are earned per word guessed — fewer hints used means a higher word score.
 
 'use strict';
 
 const compounds = require('./compounds.json');
 const checkWord = require('check-word');
 const dict = checkWord('en');
+
+const ALLOWED_S_WORDS = new Set([
+  'grass','boss','loss','toss','cross','glass','class','pass','mass','brass',
+  'dress','press','stress','bless','chess','guess','mess','miss','kiss','bliss',
+  'plus','bus','focus','status','campus','bonus','census','chorus','virus',
+  'iris','axis','basis','crisis','thesis','radius','genius','terminus',
+  'walrus','cactus','nexus','lexus','exodus','circus','mucus','hiatus',
+  'abacus','ruckus','caucus','callus','corpus','rebus','anus','sinus',
+  'cosmos','chaos','pathos','ethos','logos','kudos','truss','fuss','puss',
+  'moss','toss','loss','boss','cross','across'
+]);
 
 /**
  * Check length and characters.
@@ -18,7 +31,7 @@ function validateWord(word) {
   if (w.length > 9) return { valid: false, error: `"${w}" exceeds 9 letters.` };
   
   // Basic plural validation
-  if (w.length > 3 && w.endsWith('s') && !['grass', 'boss', 'loss', 'toss', 'cross', 'glass', 'class', 'pass', 'mass', 'brass'].includes(w)) {
+  if (w.length > 3 && w.endsWith('s') && !ALLOWED_S_WORDS.has(w) && !w.endsWith('ss') && !w.endsWith('us') && !w.endsWith('is') && !w.endsWith('as') && !w.endsWith('os')) {
       return { valid: false, error: `"${w}" appears to be plural. Plural words ending in "s" are not allowed.` };
   }
   
@@ -100,6 +113,25 @@ function init(players) {
   return { chains, guessProgress, scores };
 }
 
+/**
+ * Check that a single word exists in Merriam-Webster Collegiate.
+ */
+async function isValidWordAPI(word) {
+  const apiKey = process.env.MW_API_KEY;
+  if (!apiKey) return true; // No key → skip, keep game playable
+
+  try {
+    const res = await fetch(`https://www.dictionaryapi.com/api/v3/references/collegiate/json/${encodeURIComponent(word)}?key=${apiKey}`);
+    if (!res.ok) return true; // Network hiccup → allow
+    const data = await res.json();
+    // MW returns an array of entry objects when the word is found
+    return Array.isArray(data) && data.length > 0 && typeof data[0] === 'object';
+  } catch (err) {
+    console.error('MW word check error:', err);
+    return true;
+  }
+}
+
 async function isValidCompoundAPI(wordA, wordB) {
   const apiKey = process.env.MW_API_KEY;
   if (!apiKey) {
@@ -157,15 +189,27 @@ async function handleSetup(gameData, socketId, data) {
     validated.push(res.word);
   }
 
+  // Validate each individual word exists in Merriam-Webster
+  for (let i = 0; i < validated.length; i++) {
+    const exists = await isValidWordAPI(validated[i]);
+    if (!exists) {
+      return { success: false, error: `"${validated[i]}" is not a recognized word.` };
+    }
+  }
+
   // Validate that the submitted chain forms a true compound chain using the Dictionary API
   for (let i = 0; i < validated.length - 1; i++) {
     const isValid = await isValidCompoundAPI(validated[i], validated[i + 1]);
     if (!isValid) {
-      const generated = generateWordChain();
       return { 
         success: false, 
-        error: `"${validated[i]}" and "${validated[i + 1]}" do not form a recognized compound phrase. The system has auto-generated a new set for you.`,
-        words: generated
+        invalidCompound: {
+          index1: i,
+          index2: i + 1,
+          word1: validated[i],
+          word2: validated[i + 1]
+        },
+        error: `"${validated[i]}" and "${validated[i + 1]}" do not form a recognized compound phrase.`
       };
     }
   }
@@ -215,6 +259,15 @@ async function handleSetup(gameData, socketId, data) {
 function handleAction(gameData, currentPlayer, data) {
   const guess = typeof data?.guess === 'string' ? data.guess.trim().toLowerCase() : null;
   if (!guess) return { success: false, error: 'A guess is required.' };
+
+  // Guard against rapid duplicate submissions (e.g. double Enter key fire)
+  if (!gameData._lastGuess) gameData._lastGuess = {};
+  const lastGuess = gameData._lastGuess[currentPlayer.id];
+  const now = Date.now();
+  if (lastGuess && lastGuess.guess === guess && (now - lastGuess.time) < 800) {
+    return { success: false, error: 'duplicate' };
+  }
+  gameData._lastGuess[currentPlayer.id] = { guess, time: now };
 
   const opponentId = getOpponentId(gameData, currentPlayer.id);
   if (!opponentId || !gameData.chains[opponentId]?.submitted) {
@@ -336,4 +389,5 @@ module.exports = {
   buildRevealedWord,
   checkGameEnd,
   getInitialPayload,
+  isValidWordAPI,
 };

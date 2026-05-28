@@ -40,7 +40,6 @@
             position: relative;
         }
 
-        /* Radial gradient accent */
         body::before {
             content: '';
             position: fixed;
@@ -53,7 +52,6 @@
             z-index: 0;
         }
 
-        /* CRT Scanline overlay */
         body::after {
             content: '';
             position: fixed;
@@ -96,6 +94,17 @@
             animation: fade-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
         }
 
+        .hint-text {
+            font-size: 0.82em;
+            color: var(--text-muted);
+            margin-bottom: 28px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            position: relative;
+            z-index: 1;
+            animation: fade-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+        }
+
         @keyframes fade-slide-up {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -107,20 +116,23 @@
             gap: 16px;
             width: 100%;
             max-width: 900px;
-            margin-bottom: 40px;
             position: relative;
             z-index: 1;
+            align-items: start;
         }
 
+        /* ── Card base ── */
         .card {
             background: var(--surface);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            padding: 30px 24px;
+            padding: 30px 24px 24px;
             border-radius: var(--radius);
             text-align: center;
             border: 1px solid var(--surface-border);
-            transition: var(--transition);
+            transition: border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+                        box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+                        transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             cursor: pointer;
             display: flex;
             flex-direction: column;
@@ -142,43 +154,43 @@
         }
 
         .card:hover:not(.unavailable) {
-            transform: translateY(-6px);
-            border-color: rgba(255, 45, 120, 0.4);
-            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(255, 45, 120, 0.1);
+            transform: translateY(-4px);
+            border-color: rgba(255, 45, 120, 0.3);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 45, 120, 0.08);
         }
 
+        /* Selected state — lime glow */
         .card.selected {
+            border-color: var(--neon-lime);
+            box-shadow: 0 0 25px rgba(163, 255, 18, 0.15), 0 4px 20px rgba(0, 0, 0, 0.3);
+            transform: translateY(-4px);
+            cursor: default;
+        }
+
+        .card.selected:hover {
+            transform: translateY(-4px);
             border-color: var(--neon-lime);
             box-shadow: 0 0 25px rgba(163, 255, 18, 0.15), 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
-        .card.selected::after {
-            content: 'SELECTED';
-            position: absolute;
-            top: 12px;
-            right: 12px;
+        .card.selected .card-badge {
             background: var(--neon-lime);
             color: #0A0A0F;
-            font-size: 0.6em;
-            font-weight: 700;
-            letter-spacing: 1.5px;
-            padding: 3px 8px;
-            border-radius: 4px;
         }
 
+        /* Unavailable */
         .card.unavailable {
             opacity: 0.35;
             cursor: not-allowed;
         }
-
         .card.unavailable:hover {
             transform: none;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             border-color: var(--surface-border);
         }
 
-        .card.unavailable::after {
-            content: 'COMING SOON';
+        /* Badge (top-right corner label) */
+        .card-badge {
             position: absolute;
             top: 12px;
             right: 12px;
@@ -189,18 +201,24 @@
             letter-spacing: 1.5px;
             padding: 3px 8px;
             border-radius: 4px;
+            text-transform: uppercase;
+            transition: background 0.3s, color 0.3s;
         }
 
         .icon {
             font-size: 2.8em;
             margin-bottom: 14px;
-            filter: grayscale(0);
             transition: var(--transition);
         }
 
         .card:hover:not(.unavailable) .icon {
             transform: scale(1.1);
             filter: drop-shadow(0 0 10px rgba(255, 45, 120, 0.3));
+        }
+
+        .card.selected .icon {
+            transform: scale(1.05);
+            filter: drop-shadow(0 0 10px rgba(163, 255, 18, 0.3));
         }
 
         h3 {
@@ -219,56 +237,40 @@
             font-weight: 400;
         }
 
-        .controls {
-            background: var(--surface);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            padding: 20px 24px;
-            border-radius: var(--radius);
-            border: 1px solid var(--surface-border);
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
+        /* ── Expandable actions inside card ── */
+        .card-actions {
             width: 100%;
-            max-width: 520px;
-            position: relative;
-            z-index: 1;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            animation: fade-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
+            margin-top: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                        margin-top 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                        opacity 0.3s ease;
+            opacity: 0;
         }
 
-        .controls input {
-            padding: 12px 16px;
-            border-radius: 10px;
-            border: 2px solid rgba(255, 255, 255, 0.06);
-            background: rgba(10, 10, 15, 0.6);
-            color: var(--text-primary);
-            font-family: 'Outfit', sans-serif;
-            font-weight: 700;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            width: 120px;
-            font-size: 1em;
+        .card.selected .card-actions {
+            max-height: 160px;
+            margin-top: 20px;
+            opacity: 1;
+        }
+
+        .card-actions-inner {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .action-top {
+            width: 100%;
             transition: var(--transition);
         }
 
-        .controls input::placeholder {
-            color: var(--text-muted);
-            font-weight: 500;
-            letter-spacing: 2px;
-        }
-
-        .controls input:focus {
-            outline: none;
-            border-color: var(--neon-cyan);
-            box-shadow: 0 0 0 4px rgba(0, 240, 255, 0.1), 0 0 15px rgba(0, 240, 255, 0.1);
-        }
-
-        button {
-            padding: 12px 24px;
+        /* ── Buttons inside cards ── */
+        .card-actions button {
+            width: 100%;
+            padding: 11px 16px;
             border-radius: 10px;
             border: none;
             font-family: 'Outfit', sans-serif;
@@ -278,55 +280,107 @@
             white-space: nowrap;
             letter-spacing: 1.5px;
             text-transform: uppercase;
-            font-size: 0.85em;
+            font-size: 0.82em;
         }
 
         .host-btn {
             background: var(--neon-pink);
             color: white;
-            flex: 1;
-            box-shadow: 0 0 15px rgba(255, 45, 120, 0.15);
+            box-shadow: 0 0 12px rgba(255, 45, 120, 0.15);
         }
-
         .host-btn:hover {
             background: #ff1a6b;
-            transform: translateY(-2px);
             box-shadow: var(--glow-pink);
-        }
-
-        .divider {
-            width: 1px;
-            height: 36px;
-            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
         }
 
         .join-btn {
             background: var(--neon-lime);
             color: #0A0A0F;
-            flex: 1;
-            box-shadow: 0 0 15px rgba(163, 255, 18, 0.15);
+            box-shadow: 0 0 12px rgba(163, 255, 18, 0.15);
         }
-
         .join-btn:hover {
             background: #96f000;
-            transform: translateY(-2px);
             box-shadow: var(--glow-lime);
+            transform: translateY(-2px);
         }
 
-        button:active {
+        .card-actions button:active {
             transform: translateY(0) scale(0.98);
         }
 
-        button:disabled {
-            background: var(--text-muted);
-            color: var(--bg);
-            cursor: not-allowed;
-            transform: none !important;
-            box-shadow: none !important;
-            opacity: 0.4;
+        /* ── Code input that replaces the Host btn ── */
+        .code-input-wrap {
+            display: none;
+            width: 100%;
+            position: relative;
         }
 
-        /* Snackbar */
+        .code-input-wrap.visible {
+            display: block;
+        }
+
+        .code-input-wrap input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 2px solid rgba(163, 255, 18, 0.35);
+            background: rgba(10, 10, 15, 0.7);
+            color: var(--neon-lime);
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            font-size: 1em;
+            transition: var(--transition);
+            caret-color: var(--neon-lime);
+        }
+
+        .code-input-wrap input::placeholder {
+            color: rgba(163, 255, 18, 0.3);
+            font-weight: 500;
+            letter-spacing: 3px;
+        }
+
+        .code-input-wrap input:focus {
+            outline: none;
+            border-color: var(--neon-lime);
+            box-shadow: 0 0 0 3px rgba(163, 255, 18, 0.12), 0 0 12px rgba(163, 255, 18, 0.1);
+        }
+
+        /* Cancel/back small button in join mode */
+        .cancel-join {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1em;
+            padding: 4px;
+            line-height: 1;
+            transition: color 0.2s;
+            width: auto !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+        }
+        .cancel-join:hover {
+            color: var(--neon-pink);
+            transform: translateY(-50%);
+            box-shadow: none !important;
+        }
+
+        /* Divider between actions */
+        .action-divider {
+            width: 100%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        /* ── Snackbar ── */
         #snackbar {
             visibility: hidden;
             min-width: 250px;
@@ -348,12 +402,10 @@
             letter-spacing: 0.5px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 71, 87, 0.1);
         }
-
         #snackbar.show {
             visibility: visible;
             animation: snack-in 0.4s cubic-bezier(0.16, 1, 0.3, 1), snack-out 0.4s ease 2.5s;
         }
-
         @keyframes snack-in {
             from { bottom: 0; opacity: 0; transform: translateX(-50%) translateY(10px); }
             to { bottom: 30px; opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -363,7 +415,7 @@
             to { opacity: 0; }
         }
 
-        /* Back link */
+        /* ── Back link ── */
         .back-link {
             position: fixed;
             top: 20px;
@@ -380,15 +432,8 @@
             align-items: center;
             gap: 6px;
         }
-
-        .back-link:hover {
-            color: var(--neon-pink);
-        }
-
-        .back-link::before {
-            content: '←';
-            font-size: 1.1em;
-        }
+        .back-link:hover { color: var(--neon-pink); }
+        .back-link::before { content: '←'; font-size: 1.1em; }
     </style>
 </head>
 <body>
@@ -396,90 +441,184 @@
 
     <h1>Select Game</h1>
     <div class="welcome" id="welcomeText">Welcome back!</div>
+    <p class="hint-text">Pick a game to get started</p>
 
     <div class="grid">
+
         <!-- Word Chain -->
-        <div class="card selected" id="card_WORD_CHAIN" onclick="selectGame('WORD_CHAIN')">
+        <div class="card" id="card_WORD_CHAIN" onclick="selectGame('WORD_CHAIN', event)">
             <div class="icon">🔗</div>
             <h3>Word Chain</h3>
-            <p class="card-desc">Connect compound words to build the longest chain.</p>
+            <p class="card-desc">Build a 7-word compound chain, then guess your opponent's hidden words to score points.</p>
+
+            <div class="card-actions" id="actions_WORD_CHAIN">
+                <div class="card-actions-inner">
+                    <!-- Top slot: Host btn OR code input -->
+                    <div class="action-top" id="top_WORD_CHAIN">
+                        <button class="host-btn" onclick="onHostClick('WORD_CHAIN', event)">⚡ Host Game</button>
+                    </div>
+                    <div class="action-divider"></div>
+                    <!-- Bottom: Join btn (becomes Confirm when in join-mode) -->
+                    <button class="join-btn" id="joinBtn_WORD_CHAIN" onclick="onJoinClick('WORD_CHAIN', event)">🎮 Join Game</button>
+                </div>
+            </div>
         </div>
 
-        <!-- Guess Number -->
+        <!-- Guess Number (unavailable) -->
         <div class="card unavailable">
+            <div class="card-badge">Coming Soon</div>
             <div class="icon">🔢</div>
             <h3>Guess Number</h3>
             <p class="card-desc">Find the secret number before your opponent does.</p>
         </div>
 
-        <!-- Connect Letters -->
+        <!-- Connect Letters (unavailable) -->
         <div class="card unavailable">
+            <div class="card-badge">Coming Soon</div>
             <div class="icon">✏️</div>
             <h3>Connect Letters</h3>
             <p class="card-desc">Form words by connecting adjacent letter tiles.</p>
         </div>
 
-        <!-- Wordle -->
+        <!-- Wordle (unavailable) -->
         <div class="card unavailable">
+            <div class="card-badge">Coming Soon</div>
             <div class="icon">🟩</div>
             <h3>Wordle Puzzle</h3>
             <p class="card-desc">The classic word-guessing duel. 5 letters, 6 tries.</p>
         </div>
 
-        <!-- Dingbats -->
+        <!-- Dingbats (unavailable) -->
         <div class="card unavailable">
+            <div class="card-badge">Coming Soon</div>
             <div class="icon">💡</div>
             <h3>Dingbats</h3>
             <p class="card-desc">Solve visual word puzzles and rebus riddles.</p>
         </div>
     </div>
 
-    <div class="controls">
-        <button class="host-btn" id="hostBtn" onclick="onHostClick()">Host Game</button>
-        <div class="divider"></div>
-        <input type="text" id="roomCodeInput" placeholder="CODE" maxlength="6">
-        <button class="join-btn" onclick="onJoinClick()">Join Game</button>
-    </div>
-
     <div id="snackbar"></div>
 
     <script>
-        let selectedGame = 'WORD_CHAIN';
+        // ── State per game ──
+        const gameStates = {}; // gameType → { joinMode: bool }
 
-        function showError(msg) {
-            const sb = document.getElementById("snackbar");
-            sb.innerText = msg;
-            sb.className = "show";
-            setTimeout(() => { sb.className = sb.className.replace("show", ""); }, 3000);
-        }
-
+        // ── Auth guard ──
         const playerName = sessionStorage.getItem('playerName');
-        if (!playerName) {
-            window.location.href = 'index.html';
-        }
-
+        if (!playerName) window.location.href = 'index.html';
         document.getElementById('welcomeText').innerText = `Welcome, ${playerName}!`;
 
-        function selectGame(gameType) {
-            // In this version, only WORD_CHAIN is available
-            if (gameType !== 'WORD_CHAIN') return;
-            
-            selectedGame = gameType;
-            // Visual update
+        // ── Snackbar ──
+        function showError(msg) {
+            const sb = document.getElementById('snackbar');
+            sb.innerText = msg;
+            sb.className = 'show';
+            setTimeout(() => { sb.className = sb.className.replace('show', ''); }, 3000);
+        }
+
+        // ── Select / deselect a game card ──
+        function selectGame(gameType, e) {
+            // Stop propagation only when click originates inside .card-actions
+            // (buttons handle their own events; this fires on the card shell)
+            const card = document.getElementById(`card_${gameType}`);
+            const isSelected = card.classList.contains('selected');
+
+            // Deselect all cards first
             document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
-            document.getElementById(`card_${gameType}`).classList.add('selected');
+            resetJoinMode(gameType);
+
+            // If it wasn't selected, select it now
+            if (!isSelected) {
+                card.classList.add('selected');
+                if (!gameStates[gameType]) gameStates[gameType] = { joinMode: false };
+            }
         }
 
-        function onHostClick() {
-            if (!selectedGame) return showError("Please select a game!");
-            window.location.href = `lobby.html?action=create&game=${selectedGame}`;
+        // ── Host click ──
+        function onHostClick(gameType, e) {
+            e.stopPropagation(); // don't deselect card
+            window.location.href = `lobby.html?action=create&game=${gameType}`;
         }
 
-        function onJoinClick() {
-            if (!selectedGame) return showError("Please select a game!");
-            const roomCode = document.getElementById('roomCodeInput').value.trim().toUpperCase();
-            if(!roomCode) return showError("Enter a Room Code!");
-            window.location.href = `lobby.html?action=join&game=${selectedGame}&room=${roomCode}`;
+        // ── Join click: toggle join mode ──
+        function onJoinClick(gameType, e) {
+            e.stopPropagation();
+
+            const state = gameStates[gameType] || { joinMode: false };
+
+            if (!state.joinMode) {
+                // Enter join mode — swap host btn for input
+                enterJoinMode(gameType);
+            } else {
+                // Already in join mode — confirm join
+                confirmJoin(gameType);
+            }
+        }
+
+        function enterJoinMode(gameType) {
+            if (!gameStates[gameType]) gameStates[gameType] = {};
+            gameStates[gameType].joinMode = true;
+
+            const topSlot = document.getElementById(`top_${gameType}`);
+            const joinBtn = document.getElementById(`joinBtn_${gameType}`);
+
+            // Replace host button with code input
+            topSlot.innerHTML = `
+                <div class="code-input-wrap visible" id="inputWrap_${gameType}">
+                    <button class="cancel-join" title="Back" onclick="cancelJoinMode('${gameType}', event)">✕</button>
+                    <input
+                        type="text"
+                        id="codeInput_${gameType}"
+                        placeholder="ENTER CODE"
+                        maxlength="6"
+                        autocomplete="off"
+                        autocapitalize="characters"
+                        oninput="this.value = this.value.toUpperCase()"
+                        onkeydown="if(event.key==='Enter') confirmJoin('${gameType}')"
+                    >
+                </div>
+            `;
+
+            // Change join button label
+            joinBtn.textContent = '→ Confirm Join';
+
+            // Focus the input after transition settles
+            setTimeout(() => {
+                const inp = document.getElementById(`codeInput_${gameType}`);
+                if (inp) inp.focus();
+            }, 80);
+        }
+
+        function cancelJoinMode(gameType, e) {
+            if (e) e.stopPropagation();
+            resetJoinMode(gameType);
+        }
+
+        function resetJoinMode(gameType) {
+            if (gameStates[gameType]) gameStates[gameType].joinMode = false;
+
+            const topSlot = document.getElementById(`top_${gameType}`);
+            const joinBtn = document.getElementById(`joinBtn_${gameType}`);
+            if (!topSlot || !joinBtn) return;
+
+            topSlot.innerHTML = `
+                <button class="host-btn" onclick="onHostClick('${gameType}', event)">⚡ Host Game</button>
+            `;
+            joinBtn.textContent = '🎮 Join Game';
+        }
+
+        function confirmJoin(gameType) {
+            const inp = document.getElementById(`codeInput_${gameType}`);
+            if (!inp) return;
+            const roomCode = inp.value.trim().toUpperCase();
+            if (!roomCode) {
+                inp.focus();
+                inp.style.borderColor = 'var(--error)';
+                setTimeout(() => { inp.style.borderColor = ''; }, 1200);
+                showError('Enter a Room Code!');
+                return;
+            }
+            window.location.href = `lobby.html?action=join&game=${gameType}&room=${roomCode}`;
         }
     </script>
 </body>
