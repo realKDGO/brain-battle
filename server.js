@@ -12,6 +12,7 @@ const {
   leaveRoom,
   findRoomBySocket,
   getRoom,
+  updateMaxPlayers,
 } = require("./rooms/roomManager");
 
 const {
@@ -170,14 +171,103 @@ io.on("connection", (socket) => {
           room.gameData.scores[socket.id] = room.gameData.scores[oldId];
           delete room.gameData.scores[oldId];
         }
+        // ── CRITICAL: also update playerIds so getTargetId / getInitialPayload
+        //    work correctly after the socket-ID change ─────────────────────────
+        if (room.gameData.playerIds) {
+          const idx = room.gameData.playerIds.indexOf(oldId);
+          if (idx !== -1) room.gameData.playerIds[idx] = socket.id;
+        }
         console.log(`[Room] Remapped gameData for "${playerName}" from ${oldId} → ${socket.id}`);
       }
 
       socket.emit("joinRoomResponse", { success: true, roomCode: result.roomCode, hostId: result.room.host });
       broadcastRoomUpdate(result.roomCode, result.room);
       console.log(`[Room] "${playerName}" (${socket.id}) joined ${result.roomCode}`);
+
+      // ── Re-send gameStarted when reconnecting to an already-active game ────
+      // This covers the case where the game auto-started from the lobby (e.g.
+      // single-player / 5+ players) before the player's game.html socket loaded,
+      // so the original gameStarted event was never received by the client.
+      if (result.reconnected && room.gameState === 'ACTIVE') {
+        const { getGameModule } = require('./games/index');
+        const mod = getGameModule(room.gameMode);
+        if (mod && mod.getInitialPayload) {
+          const payload = mod.getInitialPayload(room.gameData);
+          if (payload[socket.id]) {
+            socket.emit('gameStarted', { payload });
+            console.log(`[Room] Re-sent gameStarted to "${playerName}" (${socket.id}) on reconnect`);
+          }
+        }
+      }
+    } else if (result.status === 'waiting_for_host') {
+      // Room is full — notify the host that someone wants in
+      io.to(result.hostId).emit('joinRequest', {
+        joiningPlayerId: socket.id,
+        playerName: playerName.trim(),
+        roomCode: rCode,
+        gameType,
+      });
+      socket.emit("joinRoomResponse", {
+        success: false,
+        status: 'waiting_for_host',
+        error: result.error,
+      });
     } else {
       socket.emit("joinRoomResponse", { success: false, error: result.error });
+    }
+  });
+
+  // ── respondJoinRequest ─────────────────────────────────────────────────────
+  // Host accepts or ignores a pending join request from a player trying
+  // to enter a full lobby.
+  socket.on("respondJoinRequest", ({ joiningPlayerId, playerName, roomCode, gameType, action } = {}) => {
+    const ctx = requireRoom(socket, "respondJoinRequest");
+    if (!ctx) return;
+    const { room } = ctx;
+    if (rejectIfNotHost(socket, room, "respondJoinRequest")) return;
+
+    if (action === 'accept') {
+      if ((room.maxPlayers || 2) >= 8) {
+        io.to(joiningPlayerId).emit("joinRequestResponse", {
+          accepted: false,
+          error: "The lobby is already at the maximum capacity (8 players).",
+        });
+        return;
+      }
+      // Bump maxPlayers so there's a slot
+      room.maxPlayers = (room.maxPlayers || 2) + 1;
+      const result = joinRoom(joiningPlayerId, roomCode, playerName, gameType);
+      if (result.success) {
+        const joiningSocket = io.sockets.sockets.get(joiningPlayerId);
+        if (joiningSocket) joiningSocket.join(result.roomCode);
+        io.to(joiningPlayerId).emit("joinRequestResponse", { accepted: true, roomCode: result.roomCode, hostId: room.host });
+        // Tell the host's lobby to remove this player from pendingRequests
+        socket.emit('clearJoinRequest', { joiningPlayerId });
+        broadcastRoomUpdate(result.roomCode, result.room);
+        console.log(`[Room] "${playerName}" (${joiningPlayerId}) joined ${result.roomCode} via host accept`);
+      } else {
+        io.to(joiningPlayerId).emit("joinRequestResponse", { accepted: false, error: result.error });
+      }
+    } else {
+      // Host ignored
+      io.to(joiningPlayerId).emit("joinRequestResponse", {
+        accepted: false,
+        error: "The host did not add a player slot for you.",
+      });
+    }
+  });
+
+  // ── updateRoomSettings ─────────────────────────────────────────────────────
+  // Host changes maxPlayers from the lobby dropdown.
+  socket.on("updateRoomSettings", ({ maxPlayers } = {}) => {
+    const ctx = requireRoom(socket, "updateRoomSettings");
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (rejectIfNotHost(socket, room, "updateRoomSettings")) return;
+
+    if (typeof maxPlayers === 'number') {
+      updateMaxPlayers(roomCode, maxPlayers);
+      broadcastRoomUpdate(roomCode, room);
     }
   });
 
@@ -205,7 +295,19 @@ io.on("connection", (socket) => {
 
     const result = startSetup(roomCode);
     socket.emit("startSetupResponse", { success: result.success, error: result.error });
-    if (result.success) broadcastRoomUpdate(roomCode, result.room);
+    if (result.success) {
+      // Initialise dict flag so all clients receive it on first roomUpdate
+      if (typeof room.dictEnabled === 'undefined') room.dictEnabled = true;
+      room.dictRequestCounts = {}; // reset per-session request counts
+      const allSubmitted = room.players.every(p => room.gameData.chains && room.gameData.chains[p.id] && room.gameData.chains[p.id].submitted);
+      if (allSubmitted) {
+        const startResult = startGame(roomCode);
+        if (startResult.success) {
+          io.to(roomCode).emit("gameStarted", { payload: startResult.payload });
+        }
+      }
+      broadcastRoomUpdate(roomCode, result.room);
+    }
   });
 
   // ── submitSetup ────────────────────────────────────────────────────────────
@@ -307,6 +409,20 @@ io.on("connection", (socket) => {
     
     if (result.success) {
       broadcastRoomUpdate(roomCode, result.room);
+
+      // Notify all players when someone finishes in multiplayer
+      const gd = result.room.gameData;
+      if (result.correct && result.currentIndex > 5 && gd.playerIds && gd.playerIds.length > 1) {
+        const playerIds = gd.playerIds;
+        const finishedCount = playerIds.filter(id => {
+          const p = gd.guessProgress[id];
+          return p && p.currentIndex > 5;
+        }).length;
+        const stillGuessing = playerIds.length - finishedCount;
+        if (stillGuessing > 0) {
+          io.to(roomCode).emit('guessingStatus', { finishedCount, stillGuessing });
+        }
+      }
       
       // Auto-check for end-of-game conditions specifically for WORD_CHAIN
       const { getGameModule } = require("./games/index");
@@ -319,11 +435,101 @@ io.on("connection", (socket) => {
           io.to(roomCode).emit("endGameResponse", {
             success: endResult.success,
             winner: endResult.winner,
-            scores: result.room.gameData.scores
+            scores: result.room.gameData.scores,
+            timeTaken: result.room.gameData.timeTaken,
+            players: result.room.players
           });
           broadcastRoomUpdate(roomCode, result.room);
       }
     }
+  });
+
+  // ── setupProgressUpdate ───────────────────────────────────────────────────
+  // Player reports how many rows they have typed so far (for status bar).
+  // Stored as chains[id].filledRows and broadcast via roomUpdate.
+  socket.on('setupProgressUpdate', ({ filledRows } = {}) => {
+    const roomCode = findRoomBySocket(socket.id);
+    if (!roomCode) return;
+    const room = getRoom(roomCode);
+    if (!room || room.gameState !== 'SETUP') return;
+    if (!room.gameData.chains) return;
+    if (!room.gameData.chains[socket.id]) room.gameData.chains[socket.id] = { words: [], submitted: false };
+    room.gameData.chains[socket.id].filledRows = filledRows || 0;
+    broadcastRoomUpdate(roomCode, room);
+  });
+
+  // ── requestInitialPayload ─────────────────────────────────────────────────
+  // Client asks for the initial game state (used when game.html loads into an
+  // already-active game, e.g. single-player auto-start or reconnect).
+  socket.on('requestInitialPayload', () => {
+    const roomCode = findRoomBySocket(socket.id);
+    if (!roomCode) return;
+    const room = getRoom(roomCode);
+    if (!room || room.gameState !== 'ACTIVE') return;
+
+    const { getGameModule } = require('./games/index');
+    const mod = getGameModule(room.gameMode);
+    if (!mod || !mod.getInitialPayload) return;
+
+    const payload = mod.getInitialPayload(room.gameData);
+    if (payload[socket.id]) {
+      socket.emit('gameStarted', { payload });
+      console.log(`[Room] Sent requestInitialPayload to ${socket.id} in ${roomCode}`);
+    }
+  });
+
+
+  // ── dictToggle ─────────────────────────────────────────────────────────────
+  // Host toggles dictionary validation ON/OFF during setup phase.
+  socket.on('dictToggle', ({ enabled } = {}) => {
+    const ctx = requireRoom(socket, 'dictToggle');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (rejectIfNotHost(socket, room, 'dictToggle')) return;
+    room.dictEnabled = (enabled !== false); // default true
+    // Notify all players (excluding host) of the change
+    socket.to(roomCode).emit('dictToggleUpdate', { enabled: room.dictEnabled });
+    socket.emit('dictToggleUpdate', { enabled: room.dictEnabled }); // confirm to host too
+  });
+
+  // ── requestDictOn ──────────────────────────────────────────────────────────
+  // Non-host player requests host to turn dictionary validation back on.
+  // Server tracks per-player request counts and enforces the 2-request cap.
+  socket.on('requestDictOn', ({ requestedState } = {}) => {
+    const ctx = requireRoom(socket, 'requestDictOn');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (!room.dictRequestCounts) room.dictRequestCounts = {};
+    const count = room.dictRequestCounts[socket.id] || 0;
+    if (count >= 2) {
+      return socket.emit('requestDictOnResponse', { success: false, limitReached: true });
+    }
+    room.dictRequestCounts[socket.id] = count + 1;
+    // Store requested state so host dialog knows what the player wants
+    if (!room._pendingDictRequests) room._pendingDictRequests = {};
+    room._pendingDictRequests[socket.id] = (requestedState !== false);
+    io.to(room.host).emit('dictOnRequest', { requesterId: socket.id, requestedState: requestedState !== false });
+    socket.emit('requestDictOnResponse', { success: true });
+  });
+
+  // ── respondDictOnRequest ───────────────────────────────────────────────────
+  // Host accepts or ignores a dict-on request.
+  socket.on('respondDictOnRequest', ({ requesterId, action } = {}) => {
+    const ctx = requireRoom(socket, 'respondDictOnRequest');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (rejectIfNotHost(socket, room, 'respondDictOnRequest')) return;
+    if (action === 'accept') {
+      // Apply the state the player requested (stored when they sent requestDictOn)
+      const targetState = room._pendingDictRequests && typeof room._pendingDictRequests[requesterId] !== 'undefined'
+        ? room._pendingDictRequests[requesterId] : true;
+      room.dictEnabled = targetState;
+      io.to(roomCode).emit('dictToggleUpdate', { enabled: targetState });
+    } else {
+      io.to(requesterId).emit('dictOnRequestIgnored');
+    }
+    // Clean up pending entry
+    if (room._pendingDictRequests) delete room._pendingDictRequests[requesterId];
   });
 
   // ── nextTurn ───────────────────────────────────────────────────────────────
@@ -402,7 +608,16 @@ io.on("connection", (socket) => {
 
     const result = resetGame(roomCode);
     socket.emit("resetGameResponse", { success: result.success, error: result.error });
-    if (result.success) broadcastRoomUpdate(roomCode, result.room);
+    if (result.success) {
+      const allSubmitted = room.players.every(p => room.gameData.chains && room.gameData.chains[p.id] && room.gameData.chains[p.id].submitted);
+      if (allSubmitted) {
+        const startResult = startGame(roomCode);
+        if (startResult.success) {
+          io.to(roomCode).emit("gameStarted", { payload: startResult.payload });
+        }
+      }
+      broadcastRoomUpdate(roomCode, result.room);
+    }
   });
 });
 
@@ -416,7 +631,11 @@ function handleLeave(socket) {
   socket.leave(roomCode);
 
   if (room) {
-    if (room.gameData) {
+    // Only wipe game data in LOBBY state. During SETUP/ACTIVE/GAME_END the player
+    // is navigating lobby.html → game.html; their socket ID changes but their data
+    // must survive so the reconnect remap in joinRoom can work correctly.
+    const inProgress = ['SETUP', 'ACTIVE', 'ROUND_END', 'GAME_END'].includes(room.gameState);
+    if (!inProgress && room.gameData) {
       if (room.gameData.chains) delete room.gameData.chains[socket.id];
       if (room.gameData.guessProgress) delete room.gameData.guessProgress[socket.id];
       if (room.gameData.scores) delete room.gameData.scores[socket.id];

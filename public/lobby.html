@@ -358,6 +358,101 @@
             50% { content: '..'; }
             75% { content: '...'; }
         }
+
+        /* ── Dialog overlays ─────────────────────────── */
+        .dialog-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 9000;
+            align-items: center;
+            justify-content: center;
+        }
+        .dialog-overlay.show { display: flex; }
+
+        .dialog-card {
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            padding: 28px;
+            border-radius: 16px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            animation: card-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .dialog-card h3 {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .dialog-card p {
+            font-size: 0.9em;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+
+        .dialog-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .dialog-actions button {
+            flex: 1;
+            margin-top: 0;
+            padding: 12px;
+            font-size: 0.85em;
+        }
+
+        .btn-ghost {
+            background: rgba(255,255,255,0.06) !important;
+            color: var(--text-muted) !important;
+            box-shadow: none !important;
+        }
+        .btn-ghost:hover:not(:disabled) {
+            background: rgba(255,255,255,0.1) !important;
+            color: var(--text-primary) !important;
+            transform: none !important;
+        }
+
+        /* ── Host settings row ──────────────────────── */
+        .host-settings {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            animation: fade-in 0.5s 0.18s both;
+        }
+
+        .host-settings select {
+            background: rgba(10,10,15,0.8);
+            color: var(--neon-cyan);
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 1.1em;
+            outline: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .host-settings select:hover {
+            border-color: rgba(0, 240, 255, 0.6);
+        }
+
+        .host-settings select option {
+            background: #141420;
+        }
     </style>
 </head>
 <body>
@@ -372,6 +467,20 @@
             <div class="code" id="roomCode">------</div>
         </div>
 
+        <div class="host-settings" id="hostSettings">
+            <span class="label" style="margin-bottom:0;">PLAYERS</span>
+            <select id="maxPlayersSelect" onchange="updateMaxPlayers(this.value)">
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+            </select>
+        </div>
+
         <div class="players-section">
             <div class="section-header">
                 <h3>Players</h3>
@@ -383,6 +492,27 @@
         </div>
 
         <button id="startBtn" onclick="startGame()" style="display:none;">Start Game</button>
+    </div>
+
+    <!-- Waiting-for-host dialog (shown to the joining player) -->
+    <div class="dialog-overlay" id="waitingOverlay">
+        <div class="dialog-card" style="border: 1px solid rgba(0, 240, 255, 0.3); box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);">
+            <h3 style="color: var(--neon-cyan);">Waiting for Host</h3>
+            <p>The lobby is full. Your request has been sent to the host.</p>
+            <div class="waiting-dots" style="font-size: 1.5em; color: var(--neon-cyan);"></div>
+        </div>
+    </div>
+
+    <!-- Host join-request dialog -->
+    <div class="dialog-overlay" id="requestOverlay">
+        <div class="dialog-card" style="border: 1px solid var(--neon-pink); box-shadow: 0 0 30px rgba(255, 45, 120, 0.15);">
+            <h3 style="color: var(--neon-pink);">Join Request</h3>
+            <p id="reqMsg">Players want to join, but the lobby is full.<br>Add a player slot to let them in?</p>
+            <div class="dialog-actions">
+                <button class="btn-ghost" onclick="dismissAllRequests()">Dismiss All</button>
+                <button onclick="respondToRequest('accept')">Add Player Slot</button>
+            </div>
+        </div>
     </div>
 
     <div id="snackbar"></div>
@@ -438,6 +568,59 @@
 
         socket.on('joinRoomResponse', d => {
             if (d.success) {
+                document.getElementById('waitingOverlay').classList.remove('show');
+                roomCode = d.roomCode;
+                document.getElementById('roomCode').innerText = roomCode;
+            } else if (d.status === 'waiting_for_host') {
+                // Show waiting overlay to the joining player
+                document.getElementById('waitingOverlay').classList.add('show');
+            } else {
+                document.getElementById('waitingOverlay').classList.remove('show');
+                showError(d.error);
+                setTimeout(() => window.location.href = 'select.html', 3000);
+            }
+        });
+
+        // ── Host receives this when someone tries to join a full lobby ──
+        let pendingRequests = [];
+
+        function updateRequestOverlay() {
+            const count = pendingRequests.length;
+            if (count === 0) {
+                document.getElementById('requestOverlay').classList.remove('show');
+                return;
+            }
+            const msg = count === 1
+                ? `<strong style="color:var(--neon-lime)">${pendingRequests[0].playerName}</strong> wants to join the room.`
+                : `<strong style="color:var(--neon-lime)">${count} players</strong> want to join the room.`;
+            document.getElementById('reqMsg').innerHTML = msg + '<br>Add a player slot to let them in?';
+            document.getElementById('requestOverlay').classList.add('show');
+        }
+
+        socket.on('joinRequest', d => {
+            pendingRequests.push(d);
+            updateRequestOverlay();
+        });
+
+        function respondToRequest(action) {
+            if (pendingRequests.length === 0) return;
+            const req = pendingRequests.shift(); // take the first waiting player
+            socket.emit('respondJoinRequest', { ...req, action });
+            updateRequestOverlay();
+        }
+
+        function dismissAllRequests() {
+            while (pendingRequests.length) {
+                const req = pendingRequests.shift();
+                socket.emit('respondJoinRequest', { ...req, action: 'ignore' });
+            }
+            document.getElementById('requestOverlay').classList.remove('show');
+        }
+
+        // ── Joining player gets the host's decision ──
+        socket.on('joinRequestResponse', d => {
+            document.getElementById('waitingOverlay').classList.remove('show');
+            if (d.accepted) {
                 roomCode = d.roomCode;
                 document.getElementById('roomCode').innerText = roomCode;
             } else {
@@ -446,13 +629,33 @@
             }
         });
 
+        // Host receives this after a player successfully joined via accept.
+        // Removes that player from pendingRequests so their dialog doesn't linger.
+        socket.on('clearJoinRequest', ({ joiningPlayerId }) => {
+            pendingRequests = pendingRequests.filter(r => r.joiningPlayerId !== joiningPlayerId);
+            updateRequestOverlay();
+        });
+
+        function updateMaxPlayers(val) {
+            socket.emit('updateRoomSettings', { maxPlayers: parseInt(val) });
+        }
+
         socket.on('roomUpdate', r => {
             if (r.gameState !== "LOBBY") {
                 window.location.href = `game.html?room=${roomCode}&game=${gameType}`;
                 return;
             }
 
-            document.getElementById('playerCount').innerText = `${r.players.length}/2`;
+            // Purge any pending join requests for players who are now in the room
+            if (pendingRequests.length > 0 && r.players) {
+                const joinedIds = new Set(r.players.map(p => p.id));
+                const before = pendingRequests.length;
+                pendingRequests = pendingRequests.filter(req => !joinedIds.has(req.joiningPlayerId));
+                if (pendingRequests.length !== before) updateRequestOverlay();
+            }
+
+            const max = r.maxPlayers || 2;
+            document.getElementById('playerCount').innerText = `${r.players.length}/${max}`;
             
             const ul = document.getElementById('playerList');
             ul.innerHTML = '';
@@ -477,9 +680,18 @@
 
             const startBtn = document.getElementById('startBtn');
             if (isHost) {
+                const settings = document.getElementById('hostSettings');
+                settings.style.display = 'flex';
+                document.getElementById('maxPlayersSelect').value = max;
                 startBtn.style.display = 'block';
-                startBtn.disabled = r.players.length < 2;
-                startBtn.innerText = r.players.length < 2 ? 'Waiting for players...' : 'Start Game';
+                if (max === 1) {
+                    // Single player: host can start immediately
+                    startBtn.disabled = false;
+                    startBtn.innerText = 'Start Game';
+                } else {
+                    startBtn.disabled = r.players.length < max;
+                    startBtn.innerText = r.players.length < max ? 'Waiting for players...' : 'Start Game';
+                }
             }
         });
 

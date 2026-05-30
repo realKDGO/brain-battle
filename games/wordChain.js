@@ -58,8 +58,30 @@ function buildRevealedWords(words, revealedCounts) {
   return words.map((word, i) => buildRevealedWord(word, revealedCounts[i]));
 }
 
-function getOpponentId(gameData, playerId) {
-  return Object.keys(gameData.chains).find(id => id !== playerId) || null;
+function getTargetId(gameData, playerId) {
+  const playerIds = gameData.playerIds || Object.keys(gameData.chains || {}).filter(id => id !== 'system');
+  const n = playerIds.length;
+  if (n === 1 || n >= 4) {
+    return 'system';
+  }
+  if (n === 2) {
+    return playerIds.find(id => id !== playerId) || null;
+  }
+  if (n === 3) {
+    // Circular: P0 guesses P2's words, P1 guesses P0's words, P2 guesses P1's words
+    const idx = playerIds.indexOf(playerId);
+    if (idx === -1) return null;
+    const targetIdx = (idx - 1 + 3) % 3;
+    return playerIds[targetIdx];
+  }
+  if (n === 4) {
+    // Pairs: P0↔P2, P1↔P3
+    const idx = playerIds.indexOf(playerId);
+    if (idx === -1) return null;
+    const targetIdx = (idx + 2) % 4;
+    return playerIds[targetIdx];
+  }
+  return null;
 }
 
 function initGuessProgress(opponentWords) {
@@ -87,14 +109,19 @@ function initGuessProgress(opponentWords) {
 }
 
 function initProgressIfReady(gameData, playerId) {
-  const opponentId = getOpponentId(gameData, playerId);
-  if (!opponentId) return;
-
-  if (gameData.chains[opponentId].submitted && !gameData.guessProgress[playerId]) {
-    gameData.guessProgress[playerId] = initGuessProgress(gameData.chains[opponentId].words);
+  const targetId = getTargetId(gameData, playerId);
+  if (targetId && gameData.chains[targetId] && gameData.chains[targetId].submitted && !gameData.guessProgress[playerId]) {
+    gameData.guessProgress[playerId] = initGuessProgress(gameData.chains[targetId].words);
   }
-  if (gameData.chains[playerId].submitted && !gameData.guessProgress[opponentId]) {
-    gameData.guessProgress[opponentId] = initGuessProgress(gameData.chains[playerId].words);
+
+  // Check if someone else targets this player, and if so, initialize their progress if ready
+  const playerIds = gameData.playerIds || Object.keys(gameData.chains || {}).filter(id => id !== 'system');
+  for (const otherId of playerIds) {
+    if (otherId === playerId) continue;
+    const otherTargetId = getTargetId(gameData, otherId);
+    if (otherTargetId === playerId && gameData.chains[playerId] && gameData.chains[playerId].submitted && !gameData.guessProgress[otherId]) {
+      gameData.guessProgress[otherId] = initGuessProgress(gameData.chains[playerId].words);
+    }
   }
 }
 
@@ -104,13 +131,27 @@ function init(players) {
   const chains = {};
   const guessProgress = {};
   const scores = {};
+  const playerIds = players.map(p => p.id);
+  const n = playerIds.length;
 
   for (const p of players) {
     chains[p.id] = { words: [], submitted: false, generatedWords: null };
     guessProgress[p.id] = null;
     scores[p.id] = 0;
   }
-  return { chains, guessProgress, scores };
+
+  if (n === 1 || n >= 4) {
+    // System provides words — no setup phase needed
+    const systemWords = generateWordChain();
+    chains['system'] = { words: systemWords, submitted: true };
+    for (const p of players) {
+      chains[p.id].submitted = true;
+      chains[p.id].words = systemWords;
+      guessProgress[p.id] = initGuessProgress(systemWords);
+    }
+  }
+
+  return { playerIds, chains, guessProgress, scores };
 }
 
 /**
@@ -170,7 +211,7 @@ async function isValidCompoundAPI(wordA, wordB) {
 }
 
 async function handleSetup(gameData, socketId, data) {
-  const { words, autoGenerate } = data || {};
+  const { words, autoGenerate, skipCompoundValidation } = data || {};
 
   if (autoGenerate) {
     const generated = generateWordChain();
@@ -198,19 +239,22 @@ async function handleSetup(gameData, socketId, data) {
   }
 
   // Validate that the submitted chain forms a true compound chain using the Dictionary API
-  for (let i = 0; i < validated.length - 1; i++) {
-    const isValid = await isValidCompoundAPI(validated[i], validated[i + 1]);
-    if (!isValid) {
-      return { 
-        success: false, 
-        invalidCompound: {
-          index1: i,
-          index2: i + 1,
-          word1: validated[i],
-          word2: validated[i + 1]
-        },
-        error: `"${validated[i]}" and "${validated[i + 1]}" do not form a recognized compound phrase.`
-      };
+  // (Skipped when the host has turned Dictionary Check OFF — spell check still runs above)
+  if (!skipCompoundValidation) {
+    for (let i = 0; i < validated.length - 1; i++) {
+      const isValid = await isValidCompoundAPI(validated[i], validated[i + 1]);
+      if (!isValid) {
+        return { 
+          success: false, 
+          invalidCompound: {
+            index1: i,
+            index2: i + 1,
+            word1: validated[i],
+            word2: validated[i + 1]
+          },
+          error: `"${validated[i]}" and "${validated[i + 1]}" do not form a recognized compound phrase.`
+        };
+      }
     }
   }
 
@@ -224,31 +268,34 @@ async function handleSetup(gameData, socketId, data) {
   gameData.chains[socketId].submitted = true;
 
   // ── Collision detection: did both players pick the exact same chain? ──────
-  const opponentId = Object.keys(gameData.chains).find(id => id !== socketId);
-  if (opponentId && gameData.chains[opponentId] && gameData.chains[opponentId].submitted) {
-    const opponentWords = gameData.chains[opponentId].words;
-    const isSame = opponentWords.length === validated.length &&
-      validated.every((w, i) => w === opponentWords[i]);
+  const playerIds = gameData.playerIds || Object.keys(gameData.chains || {}).filter(id => id !== 'system');
+  if (playerIds.length === 2) {
+    const opponentId = playerIds.find(id => id !== socketId);
+    if (opponentId && gameData.chains[opponentId] && gameData.chains[opponentId].submitted) {
+      const opponentWords = gameData.chains[opponentId].words;
+      const isSame = opponentWords.length === validated.length &&
+        validated.every((w, i) => w === opponentWords[i]);
 
-    if (isSame) {
-      // Generate two distinct random chains
-      let chain1, chain2;
-      do {
-        chain1 = generateWordChain();
-        chain2 = generateWordChain();
-      } while (chain1.join(',') === chain2.join(','));
+      if (isSame) {
+        // Generate two distinct random chains
+        let chain1, chain2;
+        do {
+          chain1 = generateWordChain();
+          chain2 = generateWordChain();
+        } while (chain1.join(',') === chain2.join(','));
 
-      gameData.chains[socketId].words = chain1;
-      gameData.chains[opponentId].words = chain2;
-      // Both remain submitted = true — game can proceed
-      initProgressIfReady(gameData, socketId);
+        gameData.chains[socketId].words = chain1;
+        gameData.chains[opponentId].words = chain2;
+        // Both remain submitted = true — game can proceed
+        initProgressIfReady(gameData, socketId);
 
-      return {
-        success: false,
-        forceSync: true,
-        error: 'Both players submitted the exact same set of words! ' +
-               'The system has automatically randomized both sets of words for you.',
-      };
+        return {
+          success: false,
+          forceSync: true,
+          error: 'Both players submitted the exact same set of words! ' +
+                 'The system has automatically randomized both sets of words for you.',
+        };
+      }
     }
   }
 
@@ -269,22 +316,27 @@ function handleAction(gameData, currentPlayer, data) {
   }
   gameData._lastGuess[currentPlayer.id] = { guess, time: now };
 
-  const opponentId = getOpponentId(gameData, currentPlayer.id);
-  if (!opponentId || !gameData.chains[opponentId]?.submitted) {
-    return { success: false, error: 'Opponent has not submitted their word chain yet.' };
+  const targetId = getTargetId(gameData, currentPlayer.id);
+  if (!targetId || !gameData.chains[targetId]?.submitted) {
+    return { success: false, error: 'Target player has not submitted their word chain yet.' };
   }
 
   if (!gameData.guessProgress) gameData.guessProgress = {};
   if (!gameData.guessProgress[currentPlayer.id]) {
-    gameData.guessProgress[currentPlayer.id] = { currentIndex: 1, revealedCounts: [], mistakes: 0 };
-    // Start with 1 letter revealed for the first word
-    gameData.guessProgress[currentPlayer.id].revealedCounts[1] = 1; 
+    // Use the proper initialiser so first/last words are fully revealed
+    // and all arrays (mistakes, wordScores, guessed) are correctly set up.
+    const fallbackTargetId = getTargetId(gameData, currentPlayer.id);
+    if (fallbackTargetId && gameData.chains[fallbackTargetId]) {
+      gameData.guessProgress[currentPlayer.id] = initGuessProgress(gameData.chains[fallbackTargetId].words);
+    } else {
+      return { success: false, error: 'Game progress could not be initialised.' };
+    }
   }
 
   const progress = gameData.guessProgress[currentPlayer.id];
   if (!progress) return { success: false, error: 'Game progress not initialised.' };
 
-  const opponentWords = gameData.chains[opponentId].words;
+  const opponentWords = gameData.chains[targetId].words;
 
   // Evaluate only the current sequential target word
   if (progress.currentIndex > 5) {
@@ -309,6 +361,15 @@ function handleAction(gameData, currentPlayer, data) {
 
     if (!gameData.scores) gameData.scores = {};
     gameData.scores[currentPlayer.id] = progress.totalScore;
+
+    // Record time taken if they just finished the last word
+    if (progress.currentIndex > 5) {
+      if (!gameData.timeTaken) gameData.timeTaken = {};
+      if (!gameData.timeTaken[currentPlayer.id]) {
+        const elapsedMs = Date.now() - (gameData.startTime || Date.now());
+        gameData.timeTaken[currentPlayer.id] = parseFloat((elapsedMs / 1000).toFixed(2));
+      }
+    }
 
     return {
       success: true,
@@ -348,31 +409,26 @@ function handleAction(gameData, currentPlayer, data) {
 }
 
 function checkGameEnd(gameData) {
-  const pIds = Object.keys(gameData.guessProgress);
-  if (pIds.length !== 2) return false;
+  const playerIds = gameData.playerIds || Object.keys(gameData.guessProgress || {});
+  if (!playerIds || playerIds.length === 0) return false;
   
-  for (const id of pIds) {
+  for (const id of playerIds) {
     const prog = gameData.guessProgress[id];
     if (!prog) return false;
-    let finishedWords = 0;
-    for (let i = 1; i <= 5; i++) {
-      if (prog.guessed[i] || prog.revealedCounts[i] === gameData.chains[getOpponentId(gameData, id)].words[i].length) {
-        finishedWords++;
-      }
-    }
-    if (finishedWords < 5) return false; // This player isn't done
+    if (prog.currentIndex <= 5) return false;
   }
-  return true; // Both are done!
+  return true;
 }
 
 function getInitialPayload(gameData) {
   const result = {};
-  for (const id of Object.keys(gameData.guessProgress)) {
+  const playerIds = gameData.playerIds || Object.keys(gameData.chains || {}).filter(id => id !== 'system');
+  for (const id of playerIds) {
     const prog = gameData.guessProgress[id];
-    const opId = getOpponentId(gameData, id);
-    if (prog && opId && gameData.chains[opId]) {
+    const targetId = getTargetId(gameData, id);
+    if (prog && targetId && gameData.chains[targetId]) {
       result[id] = {
-        revealedWords: buildRevealedWords(gameData.chains[opId].words, prog.revealedCounts),
+        revealedWords: buildRevealedWords(gameData.chains[targetId].words, prog.revealedCounts),
         currentIndex: prog.currentIndex
       };
     }

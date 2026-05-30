@@ -381,6 +381,226 @@
             position: relative;
         }
 
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        /* Leaderboard header row */
+        .leaderboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px 8px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            margin-bottom: 6px;
+        }
+        .leaderboard-header-rank {
+            width: 40px;
+            text-align: left;
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+        .leaderboard-header-name {
+            flex-grow: 1;
+            text-align: left;
+            margin-left: 10px;
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+        .leaderboard-header-stats {
+            display: flex;
+            gap: 0;
+            font-size: 0.7em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+        .leaderboard-header-pts { min-width: 70px; text-align: right; }
+        .leaderboard-header-time { min-width: 64px; text-align: right; }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .leaderboard-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .leaderboard-item.highlight-me {
+            border-color: var(--neon-lime);
+            background: rgba(163, 255, 18, 0.05);
+            box-shadow: 0 0 15px rgba(163, 255, 18, 0.1);
+        }
+
+        .leaderboard-item.rank-1 {
+            border-color: var(--neon-cyan);
+            background: rgba(0, 240, 255, 0.05);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+        }
+
+        .leaderboard-item.rank-1.highlight-me {
+            border-color: var(--neon-lime);
+            background: rgba(163, 255, 18, 0.05);
+            box-shadow: 0 0 15px rgba(163, 255, 18, 0.1);
+        }
+
+        .leaderboard-rank {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 900;
+            color: var(--text-muted);
+            width: 40px;
+            text-align: left;
+        }
+
+        .leaderboard-name {
+            flex-grow: 1;
+            text-align: left;
+            font-weight: 700;
+            margin-left: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9em;
+        }
+
+        .leaderboard-stats {
+            display: flex;
+            gap: 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+
+        .leaderboard-points {
+            color: var(--neon-lime);
+            min-width: 70px;
+            text-align: right;
+        }
+
+        .leaderboard-time {
+            color: var(--neon-pink);
+            min-width: 64px;
+            text-align: right;
+        }
+
+        /* Tiebreaker info button pulse animation */
+        @keyframes tiebreakerPulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(0,240,255,0.7), 0 0 8px rgba(0,240,255,0.4);
+                border-color: var(--neon-cyan);
+            }
+            50% {
+                box-shadow: 0 0 0 7px rgba(0,240,255,0), 0 0 18px rgba(0,240,255,0.7);
+                border-color: #7fffff;
+            }
+        }
+        #tiebreakerInfoBtn.pulse {
+            animation: tiebreakerPulse 1.4s ease-in-out infinite;
+        }
+
+        /* Setup status bar */
+        /* ── Setup Status Bar ─────────────────────────────────────────────────
+           One horizontal row of groups. Each group = player name above + a
+           thin bar segment below. Groups share the same row with a small gap.
+        ─────────────────────────────────────────────────────────────────── */
+        .setup-status-bar {
+            width: 100%;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: row;
+            gap: 4px;              /* gap between player groups */
+        }
+        /* One group per player: name stacked above the segment */
+        .setup-status-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            min-width: 0;          /* allow flex shrink */
+        }
+        /* Player name label above the bar */
+        .setup-status-name {
+            font-size: 0.62em;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            text-align: center;
+        }
+        /* Each segment is an equal flex slice of the bar */
+        .setup-status-segment {
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            background: rgba(255, 45, 120, 0.55);
+            border-radius: 4px;
+            transition: background 0.4s ease, box-shadow 0.4s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 22px;          /* reduced from 36px */
+        }
+        /* Cyan progress fill — absolute, grows from left */
+        .setup-status-segment-fill {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 0%;
+            background: var(--neon-cyan);
+            transition: width 0.45s ease;
+            box-shadow: 2px 0 8px rgba(0,240,255,0.4);
+        }
+        /* Submitted: whole segment turns lime, fill hidden */
+        .setup-status-segment.submitted {
+            background: var(--neon-lime);
+            box-shadow: inset 0 0 10px rgba(163,255,18,0.25);
+        }
+        .setup-status-segment.submitted .setup-status-segment-fill {
+            display: none;
+        }
+        /* Status text — sits above the fill layer */
+        .setup-status-segment-label {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            font-size: 0.6em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0 4px;
+            pointer-events: none;
+            color: rgba(10,10,15,0.9);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
         /* Corner accents on end game card */
         #endGameContainer::before, #endGameContainer::after {
             content: '';
@@ -616,8 +836,10 @@
         <!-- SETUP PHASE -->
         <div id="setupView" class="grid-container">
             <div id="setupRows"></div>
+            <div id="setupStatusBar" class="setup-status-bar" style="display:none;"></div>
             <div class="actions">
-                <button class="secondary-btn" onclick="autoGenerate()">Auto</button>
+                <button id="dictToggleBtn" class="secondary-btn" onclick="onDictToggleClick()" style="flex:1;">Dict: ON</button>
+                <button id="autoBtn" class="secondary-btn" onclick="autoGenerate()">Auto</button>
                 <button class="primary-btn" onclick="guardedSubmit(submitWords)">Submit</button>
             </div>
             <div id="hostSetupHint" class="host-bar" style="display:none;">
@@ -646,21 +868,61 @@
 
         <!-- END GAME -->
         <div id="endGameContainer" style="display:none;">
-            <h3 id="endMsg" style="margin-top: 0; text-transform: uppercase; letter-spacing: 4px;">Game Over</h3>
-            <div class="stats">
-                <div class="stat-item">
-                    <div class="stat-label">Score</div>
-                    <div class="stat-val" id="finalMyScore">0</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Opponent</div>
-                    <div class="stat-val" id="finalOpScore">0</div>
-                </div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:0;">
+                <h3 id="endMsg" style="margin: 0; text-transform: uppercase; letter-spacing: 4px;">Game Over</h3>
+                <button id="tiebreakerInfoBtn" onclick="openTiebreakerInfo()" title="Why is there a timer?" style="display:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--neon-cyan);background:transparent;color:var(--neon-cyan);font-size:0.8em;font-weight:900;cursor:pointer;flex-shrink:0;padding:0;align-items:center;justify-content:center;transition:all 0.15s ease;font-family:'JetBrains Mono',monospace;">i</button>
             </div>
+            <div id="leaderboardSection" style="margin-bottom: 24px; width: 100%;"></div>
             <div style="display: flex; gap: 12px; margin-top: 15px; width: 100%;">
                 <button id="restartBtn" class="success-btn" onclick="restartGame()" style="display:none; flex: 1;">Play Again</button>
                 <div id="restartHint" style="display:none; flex: 1; padding: 12px 16px; border-radius: 8px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.25); color: var(--neon-violet); font-size: 0.78em; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; text-align: center; align-items: center; justify-content: center;">Waiting for host…</div>
                 <button class="secondary-btn" onclick="window.location.href='select.html'" style="flex: 1;">Game Selection</button>
+            </div>
+        </div>
+
+        <!-- DICT DISABLED DIALOG (non-host trying to auto-generate) -->
+        <div id="dictDisabledOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,10,15,0.85);backdrop-filter:blur(8px);z-index:2000;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s ease;">
+            <div class="dialog-card" style="border-color:var(--neon-violet);box-shadow:0 0 30px rgba(139,92,246,0.2);">
+                <h3 style="color:var(--neon-violet);">Dictionary Validation</h3>
+                <p id="dictDialogDesc">Disables compound phrase validation while keeping spell check active.</p>
+                <div class="dialog-actions">
+                    <button class="secondary-btn" onclick="closeDictDisabledDialog()">Okay</button>
+                    <button id="requestDictChangeBtn" class="primary-btn" onclick="requestDictChange()">Request Turn On</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- HOST DICT REQUEST DIALOG -->
+        <div id="hostDictRequestOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,10,15,0.85);backdrop-filter:blur(8px);z-index:2001;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s ease;">
+            <div class="dialog-card" style="border-color:var(--neon-cyan);box-shadow:0 0 30px rgba(0,240,255,0.2);">
+                <h3 style="color:var(--neon-cyan);">Dictionary Request</h3>
+                <p>A player is requesting to enable dictionary validation.</p>
+                <div class="dialog-actions">
+                    <button class="secondary-btn" onclick="respondHostDictRequest('ignore')">Ignore</button>
+                    <button class="primary-btn" onclick="respondHostDictRequest('accept')">Accept</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TIEBREAKER INFO DIALOG -->
+        <div id="tiebreakerInfoOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,10,15,0.88);backdrop-filter:blur(10px);z-index:2005;align-items:center;justify-content:center;opacity:0;transition:opacity 0.3s ease;">
+            <div class="dialog-card" style="border-color:var(--neon-cyan);box-shadow:0 0 30px rgba(0,240,255,0.2);max-width:440px;text-align:left;">
+                <h3 style="color:var(--neon-cyan);text-align:center;">Why Is There a Timer?</h3>
+                <p style="margin-bottom:14px;line-height:1.6;color:var(--text-primary);">
+                    Two or more players finished with the <strong style="color:var(--neon-lime);">same score</strong>, so a tiebreaker was needed.
+                </p>
+                <p style="margin-bottom:14px;line-height:1.6;color:var(--text-muted);font-size:0.88em;">
+                    <strong style="color:var(--neon-cyan);">When is it used?</strong><br>
+                    The timer only activates when players are perfectly tied on points after all words have been guessed. It is never used otherwise.
+                </p>
+                <p style="margin-bottom:14px;line-height:1.6;color:var(--text-muted);font-size:0.88em;">
+                    <strong style="color:var(--neon-cyan);">How does it work?</strong><br>
+                    Each player's time is measured from the moment the game starts to the moment they correctly guess their last word. The player who completes the chain fastest wins the tiebreaker.
+                </p>
+                <p id="tiebreakerWinnerNote" style="margin-bottom:20px;line-height:1.6;font-size:0.88em;padding:10px 12px;border-radius:8px;background:rgba(0,240,255,0.06);border:1px solid rgba(0,240,255,0.15);color:var(--text-primary);display:none;"></p>
+                <div class="dialog-actions" style="justify-content:center;">
+                    <button class="primary-btn" onclick="closeTiebreakerInfo()">Got It</button>
+                </div>
             </div>
         </div>
 
@@ -688,6 +950,7 @@
         const FIXED_COLS = 9;
         let activeGuessingIdx = -1;
         let protectedHints = [];
+        let activeWordLength = 0; // actual letter-count of the word currently being guessed
 
         let activeNotification = null;
         const PRIORITY = { "No Plurals": 1, "Check Spelling": 2, "Incorrect Word": 3, "Last Letter": 4 };
@@ -804,9 +1067,22 @@
                 });
                 
                 input.addEventListener('input', function(e) {
+                    // Reject input into is-unused or readOnly (hint) positions
+                    if (this.parentElement.classList.contains('is-unused') || this.readOnly) {
+                        this.value = this.readOnly ? this.value : '';
+                        return;
+                    }
                     const val = this.value.toUpperCase();
                     this.value = val;
                     if (val) {
+                        // Reject non-letter characters
+                        if (!/^[A-Z]$/.test(val)) {
+                            this.value = '';
+                            const rowIdx = parseInt(this.parentElement.id.split('_')[1]);
+                            triggerRowShake(rowIdx);
+                            showNotification('Special characters are not allowed.', 'error');
+                            return;
+                        }
                         this.parentElement.classList.add('filled', 'correct', 'animate-typing');
                         this.parentElement.classList.remove('empty', 'active-indicator', 'incorrect');
                         setTimeout(() => this.parentElement.classList.remove('animate-typing'), 100);
@@ -874,25 +1150,43 @@
             });
         }
 
-        function updateLastLetterState() {
-            if (activeGuessingIdx === -1) return;
-            const row = document.getElementById(`g_row_${activeGuessingIdx}`);
-            const cubes = row.querySelectorAll('.cube');
-            
-            let wordLength = 0;
-            cubes.forEach((c, idx) => {
-                if (!c.classList.contains('is-unused')) wordLength++;
-            });
+        // Track last-letter state to avoid re-triggering the notification on every keystroke
+        let _lastLetterActive = false;
 
-            let currentVal = getRowWord('g', activeGuessingIdx);
-            
-            if (currentVal.length === wordLength - 1 && wordLength > 0) {
-                cubes.forEach(c => {
-                    if (c.classList.contains('is-unused')) c.classList.add('dimmed');
+        function updateLastLetterState() {
+            if (activeGuessingIdx === -1 || activeWordLength === 0) return;
+            const row = document.getElementById(`g_row_${activeGuessingIdx}`);
+            const cubes = Array.from(row.querySelectorAll('.cube'));
+
+            // Last Letter activates ONLY when hints account for all but one position
+            const isLastLetter = (activeWordLength > 1 && protectedHints.length === activeWordLength - 1);
+
+            if (isLastLetter) {
+                // Block cubes beyond the word length and dim them (neon pink)
+                cubes.forEach((c, i) => {
+                    if (i >= activeWordLength) {
+                        c.classList.add('is-unused', 'dimmed');
+                        const inp = c.querySelector('input');
+                        if (inp) { inp.value = ''; inp.readOnly = true; }
+                    }
                 });
-                showNotification("Last Letter");
+                if (!_lastLetterActive) {
+                    triggerRowShake(activeGuessingIdx, true);
+                    showNotification('Last Letter');
+                    _lastLetterActive = true;
+                }
             } else {
-                cubes.forEach(c => c.classList.remove('dimmed'));
+                // Restore all cubes beyond word length to writable empty state
+                cubes.forEach((c, i) => {
+                    if (i >= activeWordLength) {
+                        c.classList.remove('is-unused', 'dimmed');
+                        const inp = c.querySelector('input');
+                        if (inp) inp.readOnly = false;
+                    } else {
+                        c.classList.remove('dimmed');
+                    }
+                });
+                _lastLetterActive = false;
             }
         }
 
@@ -922,13 +1216,21 @@
 
         function getNextCubeId(id) {
             const [prefix, row, col] = id.split('_');
-            if (parseInt(col) < FIXED_COLS - 1) return `${prefix}_${row}_${parseInt(col)+1}`;
+            for (let c = parseInt(col) + 1; c < FIXED_COLS; c++) {
+                const nextId = `${prefix}_${row}_${c}`;
+                const el = document.getElementById(nextId);
+                if (el && !el.classList.contains('is-unused')) return nextId;
+            }
             return null;
         }
 
         function getPrevCubeId(id) {
             const [prefix, row, col] = id.split('_');
-            if (parseInt(col) > 0) return `${prefix}_${row}_${parseInt(col)-1}`;
+            for (let c = parseInt(col) - 1; c >= 0; c--) {
+                const prevId = `${prefix}_${row}_${c}`;
+                const el = document.getElementById(prevId);
+                if (el && !el.classList.contains('is-unused')) return prevId;
+            }
             return null;
         }
 
@@ -941,12 +1243,17 @@
                 const input = cube.querySelector('input');
                 cube.classList.remove('filled', 'empty', 'active-indicator', 'correct', 'incorrect', 'animate-blink', 'animate-error', 'dimmed', 'is-unused');
                 
-                const targetLength = word.trimEnd().length;
+                // Use full word.length (including space-padding from buildRevealedWord).
+                // Positions within the word length but showing a space are unrevealed
+                // guessing slots — they must NOT be marked is-unused so the player can type.
+                const targetLength = word.length;
 
                 if (i < targetLength) {
                     const char = word[i];
                     if (char && char !== ' ') {
+                        // Revealed letter — lock it so the mobile keyboard can't insert into it
                         input.value = char.toUpperCase();
+                        input.readOnly = (prefix === 'g');
                         if (status === 'done') {
                             const isPermanentGreen = (rowIdx === 0 || rowIdx === 6);
                             const isCorrectGuess = (rowIdx < activeGuessingIdx) || (score > 0);
@@ -958,12 +1265,23 @@
                             cube.classList.add('filled', 'correct');
                         }
                     } else {
+                        // Unrevealed guessing slot — writable, not is-unused
                         input.value = '';
+                        input.readOnly = false;
                         cube.classList.add('empty');
                     }
                 } else {
                     input.value = '';
-                    cube.classList.add('empty', 'is-unused');
+                    // Only mark is-unused for completed/anchor rows.
+                    // During active guessing (status='') all 9 cubes stay open;
+                    // Last Letter logic will dynamically add is-unused when needed.
+                    if (status === 'done' || status === 'filled') {
+                        input.readOnly = true;
+                        cube.classList.add('empty', 'is-unused');
+                    } else {
+                        input.readOnly = false;
+                        cube.classList.add('empty');
+                    }
                 }
             }
             
@@ -985,9 +1303,113 @@
             return word.trim();
         }
 
+        let dictionaryCheckEnabled = true;
+        let _dictRequestCount = 0; // this player's request count (capped at 2)
+
+        function applyDictState(enabled) {
+            dictionaryCheckEnabled = enabled;
+            const btn = document.getElementById('dictToggleBtn');
+            const autoBtn = document.getElementById('autoBtn');
+            btn.innerText = `Dict: ${enabled ? 'ON' : 'OFF'}`;
+            btn.style.opacity = enabled ? '1' : '0.5';
+            btn.disabled = false; // always clickable (host toggles, non-host opens dialog)
+            // Auto-generate button is hidden when dict is OFF (requires dict to generate valid chains)
+            autoBtn.style.display = enabled ? '' : 'none';
+        }
+
+        function onDictToggleClick() {
+            if (isHost) {
+                socket.emit('dictToggle', { enabled: !dictionaryCheckEnabled });
+            } else {
+                // Non-host always opens the dialog — content changes based on current state
+                const desc = document.getElementById('dictDialogDesc');
+                const reqBtn = document.getElementById('requestDictChangeBtn');
+                if (dictionaryCheckEnabled) {
+                    desc.innerText = 'Dictionary validation is currently ON. Compound phrase validation is active.';
+                    reqBtn.innerText = 'Request Turn Off';
+                } else {
+                    desc.innerText = 'Dictionary validation is currently OFF. Only spell checking is active. Auto-generate is unavailable.';
+                    reqBtn.innerText = 'Request Turn On';
+                }
+                const overlay = document.getElementById('dictDisabledOverlay');
+                overlay.style.display = 'flex';
+                setTimeout(() => overlay.style.opacity = '1', 10);
+            }
+        }
+
         function autoGenerate() {
             socket.emit('submitSetup', { data: { autoGenerate: true } });
         }
+
+        function closeDictDisabledDialog() {
+            const overlay = document.getElementById('dictDisabledOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
+        function requestDictChange() {
+            if (_dictRequestCount >= 2) {
+                showNotification('Request limit reached.', 'error');
+                return;
+            }
+            // Request the opposite of the current state
+            socket.emit('requestDictOn', { requestedState: !dictionaryCheckEnabled });
+        }
+
+        socket.on('dictToggleUpdate', d => {
+            applyDictState(d.enabled);
+            if (!isHost) {
+                showNotification(d.enabled ? 'Host turned on dictionary validation.' : 'Host turned off dictionary validation.', 'error');
+            }
+        });
+
+        socket.on('requestDictOnResponse', d => {
+            if (d.limitReached) {
+                const reqBtn = document.getElementById('requestDictChangeBtn');
+                if (reqBtn) reqBtn.disabled = true;
+                showNotification('Request limit reached.', 'error');
+                closeDictDisabledDialog();
+                return;
+            }
+            _dictRequestCount++;
+            if (_dictRequestCount >= 2) {
+                const reqBtn = document.getElementById('requestDictChangeBtn');
+                if (reqBtn) reqBtn.disabled = true;
+            }
+            closeDictDisabledDialog();
+            showNotification('Request sent to host.', 'error');
+        });
+
+        let _pendingDictRequesterId = null;
+
+        socket.on('dictOnRequest', d => {
+            if (!isHost) return;
+            _pendingDictRequesterId = d.requesterId;
+            // Update dialog message to reflect what the player is requesting
+            const p = document.querySelector('#hostDictRequestOverlay .dialog-card p');
+            if (p) {
+                p.innerText = d.requestedState
+                    ? 'A player is requesting to turn ON dictionary validation.'
+                    : 'A player is requesting to turn OFF dictionary validation.';
+            }
+            const overlay = document.getElementById('hostDictRequestOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.style.opacity = '1', 10);
+        });
+
+        function respondHostDictRequest(action) {
+            const overlay = document.getElementById('hostDictRequestOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+            if (_pendingDictRequesterId) {
+                socket.emit('respondDictOnRequest', { requesterId: _pendingDictRequesterId, action });
+                _pendingDictRequesterId = null;
+            }
+        }
+
+        socket.on('dictOnRequestIgnored', () => {
+            showNotification('Host ignored your request.', 'error');
+        });
 
         // Words that end in 's' but are NOT plurals — allowed
         const ALLOWED_S_WORDS = new Set([
@@ -1032,7 +1454,7 @@
                 }
                 words.push(w);
             }
-            socket.emit('submitSetup', { data: { words } });
+            socket.emit('submitSetup', { data: { words, skipCompoundValidation: !dictionaryCheckEnabled } });
         }
 
         function startGameNow() {
@@ -1066,30 +1488,83 @@
                currentPhase = 'ACTIVE';
                setupView.style.display = 'none';
                activeView.style.display = 'flex';
+               // Hide end game screen and clear leaderboard (covers Play Again from GAME_END)
+               document.getElementById('endGameContainer').style.display = 'none';
+               document.getElementById('leaderboardSection').innerHTML = '';
+               document.getElementById('restartBtn').style.display = 'none';
+               document.getElementById('restartHint').style.display = 'none';
+               const infoBtn = document.getElementById('tiebreakerInfoBtn');
+               if (infoBtn) { infoBtn.style.display = 'none'; infoBtn.classList.remove('pulse'); }
+               // gameBottomStats visibility is controlled below based on player count (2-4p only)
                phaseTitle.innerText = "Word Chain";
+               // Request initial payload if grid not yet set up (single-player auto-start / reconnect)
+               if (activeGuessingIdx === -1) socket.emit('requestInitialPayload');
             } else if (r.gameState === "SETUP") {
+               const wasAlreadySetup = (currentPhase === 'SETUP');
                currentPhase = 'SETUP';
                setupView.style.display = 'flex';
                activeView.style.display = 'none';
                document.getElementById('endGameContainer').style.display = 'none';
                phaseTitle.innerText = "Setup Phase";
+               // Only reset grids on first entry (or rematch), not on every status roomUpdate
+               if (!wasAlreadySetup) {
+                   initGrids();
+                   activeGuessingIdx = -1;
+                   protectedHints = [];
+                   _lastLetterActive = false;
+               }
+               // Sync dict enabled state from room (host may have toggled before this client loaded)
+               if (typeof r.dictEnabled !== 'undefined') applyDictState(r.dictEnabled);
+               else applyDictState(true); // default ON
+               // ── Setup status bar (visible to all players) ───────────────
+               const barEl = document.getElementById('setupStatusBar');
+               if (barEl && r.players && r.players.length > 1) {
+                   barEl.style.display = 'flex';
+                   const chains = r.gameData && r.gameData.chains;
+                   let html = '';
+                   r.players.forEach(function(p) {
+                       const chain = chains && chains[p.id];
+                       let state = 'not-started';
+                       let statusText = 'Not Started';
+                       let pct = 0;
+                       if (chain && chain.submitted) {
+                           state = 'submitted'; statusText = 'Submitted';
+                       } else if (chain && chain.filledRows > 0) {
+                           state = 'in-progress'; statusText = 'Setting Up';
+                           pct = Math.round((chain.filledRows / 7) * 100);
+                       }
+                       const isMe = (p.id === myId);
+                       const name = isMe ? 'You' : p.name;
+                       const segClass = 'setup-status-segment' + (state === 'submitted' ? ' submitted' : '');
+                       html += '<div class="setup-status-group">' +
+                           '<div class="setup-status-name">' + name + '</div>' +
+                           '<div class="' + segClass + '">' +
+                               '<div class="setup-status-segment-fill" style="width:' + pct + '%;"></div>' +
+                               '<span class="setup-status-segment-label">' + statusText + '</span>' +
+                           '</div>' +
+                       '</div>';
+                   });
+                   barEl.innerHTML = html;
+               } else if (barEl) {
+                   barEl.style.display = 'none';
+               }
+
                if (isHost) {
                    const hint = document.getElementById('hostSetupHint');
                    const btn = document.getElementById('startGameBtn');
                    hint.style.display = 'block';
                    const chains = r.gameData && r.gameData.chains;
-                   const ready = chains && Object.values(chains).filter(c => c.submitted).length === 2;
-                   btn.disabled = !ready;
+                   const readyCount = chains ? Object.values(chains).filter(c => c.submitted).length : 0;
+                   btn.disabled = readyCount < r.players.length;
                }
+            } else if (r.gameState === "GAME_END") {
+               currentPhase = 'GAME_END';
+               showEndGame(r.gameData.winner, r.gameData.scores || {}, r.gameData.timeTaken || {}, r.players);
             }
 
-            if(r.gameData && r.gameData.scores && myId) {
-                document.getElementById('myScore').innerText = r.gameData.scores[myId] || 0;
-                const opId = Object.keys(r.gameData.scores).find(id => id !== myId);
-                if (opId) document.getElementById('opScore').innerText = r.gameData.scores[opId] || 0;
-                
-                document.getElementById('finalMyScore').innerText = r.gameData.scores[myId] || 0;
-                if (opId) document.getElementById('finalOpScore').innerText = r.gameData.scores[opId] || 0;
+            if (r.gameData && r.gameData.scores && myId) {
+                // Never show live scores during gameplay — results are shown at game end only
+                document.getElementById('gameBottomStats').style.display = 'none';
             }
         });
 
@@ -1106,7 +1581,13 @@
                 if (word.length >= 2) {
                     socket.emit('validateSetupWord', { word, index: rowIdx });
                 }
-            }, 600);
+                // Emit progress count so server can broadcast status bar updates
+                let filledRows = 0;
+                for (let i = 0; i < 7; i++) {
+                    if (getRowWord('w', i).trim().length > 0) filledRows++;
+                }
+                socket.emit('setupProgressUpdate', { filledRows });
+            }, 400);
         }
 
         socket.on('submitSetupResponse', d => {
@@ -1125,6 +1606,12 @@
             }
             if (d.words) {
                 d.words.forEach((w, i) => setRowWord('w', i, w, 'filled'));
+                // Sync the progress bar — auto-generate counts as all 7 rows filled
+                let autoFilledRows = 0;
+                for (let i = 0; i < 7; i++) {
+                    if (getRowWord('w', i).trim().length > 0) autoFilledRows++;
+                }
+                socket.emit('setupProgressUpdate', { filledRows: autoFilledRows });
             }
             if (d.success && !d.words) showNotification('Words Submitted!', 'success');
         });
@@ -1144,26 +1631,48 @@
             if(d.payload && d.payload[myId]) {
                 const data = d.payload[myId];
                 activeGuessingIdx = data.currentIndex;
-                protectedHints = [];
+                protectedHints = []; activeWordLength = 0;
                 data.revealedWords.forEach((word, i) => {
                     let status = (i === 0 || i === 6 || i < data.currentIndex) ? 'done' : '';
                     setRowWord('g', i, word || '', status, 0);
                     const inputs = document.getElementById(`g_row_${i}`).querySelectorAll('input');
                     inputs.forEach(inp => inp.disabled = (i !== data.currentIndex));
                     if (i === data.currentIndex && word) {
-                       protectedHints = Array.from({length: word.trimEnd().length}, (_, k) => k);
+                       // Protect every position that already has a revealed letter (non-space)
+                       protectedHints = [...word].reduce((acc, ch, k) => { if (ch !== ' ') acc.push(k); return acc; }, []);
+                       activeWordLength = word.length;
                     }
                 });
-                const firstEmptyCol = protectedHints.length;
+                // Find the first column in the active row that has no letter yet
+                const firstEmptyCol = (() => {
+                    for (let c = 0; c < FIXED_COLS; c++) {
+                        const el = document.getElementById(`g_${data.currentIndex}_${c}`);
+                        if (el && !el.querySelector('input').value && !el.classList.contains('is-unused')) return c;
+                    }
+                    return protectedHints.length;
+                })();
                 const activeId = `g_${data.currentIndex}_${firstEmptyCol}`;
                 const activeInput = document.getElementById(activeId)?.querySelector('input');
                 if (activeInput) activeInput.focus();
                 updateActiveIndicators(activeId);
+                updateLastLetterState();
             }
         });
 
         socket.on('notification', d => {
             showNotification(d.message, d.type || 'error');
+        });
+
+        socket.on('guessingStatus', d => {
+            if (d.stillGuessing === 0) return; // game is ending, skip
+            const iAmDone = (activeGuessingIdx >= 6);
+            if (iAmDone) {
+                const n = d.stillGuessing;
+                showNotification(n === 1 ? '1 player is still guessing, please wait.' : `${n} players are still guessing, please wait.`, 'error');
+            } else {
+                const n = d.finishedCount;
+                showNotification(n === 1 ? '1 player has already finished.' : `${n} players have already finished.`, 'error');
+            }
         });
 
         socket.on('submitActionResponse', d => {
@@ -1202,20 +1711,30 @@
                 const data = d.gameResult;
                 const oldIdx = activeGuessingIdx;
                 activeGuessingIdx = data.currentIndex;
-                protectedHints = [];
+                protectedHints = []; activeWordLength = 0;
+                _lastLetterActive = false; // Reset last-letter state for the new word
                 setTimeout(() => {
                     data.revealedWords.forEach((word, i) => {
-                    let status = (i === 0 || i === 6 || i <= oldIdx) ? 'done' : '';
+                    let status = (i === 0 || i === 6 || i < data.currentIndex) ? 'done' : '';
                     let rowScore = (i === oldIdx) ? d.gameResult.wordEarned : (data.chains && data.chains[myId] ? data.chains[myId].scores[i] : null);
                     setRowWord('g', i, word || '', status, rowScore);
                     const inputs = document.getElementById(`g_row_${i}`).querySelectorAll('input');
                     inputs.forEach(inp => inp.disabled = (i !== data.currentIndex));
                     if (i === data.currentIndex && word) {
-                       protectedHints = Array.from({length: word.trimEnd().length}, (_, k) => k);
+                       // Protect every position that already has a revealed letter (non-space)
+                       protectedHints = [...word].reduce((acc, ch, k) => { if (ch !== ' ') acc.push(k); return acc; }, []);
+                       activeWordLength = word.length;
                     }
                 });
                 if (data.currentIndex < 7) {
-                    const firstEmptyCol = protectedHints.length;
+                    // Find the first empty, non-unused column in the next active row
+                    const firstEmptyCol = (() => {
+                        for (let c = 0; c < FIXED_COLS; c++) {
+                            const el = document.getElementById(`g_${data.currentIndex}_${c}`);
+                            if (el && !el.querySelector('input').value && !el.classList.contains('is-unused')) return c;
+                        }
+                        return protectedHints.length;
+                    })();
                     const activeId = `g_${data.currentIndex}_${firstEmptyCol}`;
                     const nextInput = document.getElementById(activeId)?.querySelector('input');
                     if (nextInput) nextInput.focus();
@@ -1225,14 +1744,26 @@
             }
         });
 
-        socket.on('endGameResponse', d => {
+        function openTiebreakerInfo() {
+            const overlay = document.getElementById('tiebreakerInfoOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.style.opacity = '1', 10);
+        }
+        function closeTiebreakerInfo() {
+            const overlay = document.getElementById('tiebreakerInfoOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
+        function showEndGame(winner, scores, timeTaken, players) {
+            document.getElementById('setupView').style.display = 'none';
             document.getElementById('activeView').style.display = 'none';
             const endContainer = document.getElementById('endGameContainer');
             endContainer.style.display = 'block';
             
             const endMsg = document.getElementById('endMsg');
-            if (d.winner) {
-                if (d.winner.id === myId) {
+            if (winner) {
+                if (winner.id === myId) {
                     endMsg.innerText = "Victory";
                     endMsg.style.color = 'var(--neon-lime)';
                     endMsg.style.textShadow = '0 0 30px rgba(163, 255, 18, 0.4)';
@@ -1249,9 +1780,139 @@
                 endMsg.style.textShadow = '0 0 30px rgba(0, 240, 255, 0.4)';
                 endContainer.style.borderColor = 'rgba(0, 240, 255, 0.3)';
             }
-            
+
+            // Build dynamic leaderboard
+            const leaderboardSection = document.getElementById('leaderboardSection');
+            if (leaderboardSection) {
+                leaderboardSection.innerHTML = '';
+
+                // Determine if a score tie exists (requiring tiebreaker by time)
+                const allScores = players.map(p => scores[p.id] || 0);
+                const maxScore = Math.max(...allScores);
+                const tiedCount = allScores.filter(s => s === maxScore).length;
+                const showTimeTiebreaker = tiedCount > 1;
+
+                const listContainer = document.createElement('div');
+                listContainer.className = 'leaderboard-list';
+
+                // Header row
+                const headerRow = document.createElement('div');
+                headerRow.className = 'leaderboard-header';
+                headerRow.innerHTML = `
+                    <span class="leaderboard-header-rank">#</span>
+                    <span class="leaderboard-header-name">Player</span>
+                    <div class="leaderboard-header-stats">
+                        <span class="leaderboard-header-pts">Pts</span>
+                        ${showTimeTiebreaker ? '<span class="leaderboard-header-time">Time</span>' : ''}
+                    </div>`;
+                listContainer.appendChild(headerRow);
+
+                // Sort players
+                const sortedPlayers = [...players].sort((a, b) => {
+                    const scoreA = scores[a.id] || 0;
+                    const scoreB = scores[b.id] || 0;
+                    if (scoreB !== scoreA) {
+                        return scoreB - scoreA;
+                    }
+                    const timeA = (timeTaken && timeTaken[a.id]) ?? Infinity;
+                    const timeB = (timeTaken && timeTaken[b.id]) ?? Infinity;
+                    return timeA - timeB;
+                });
+
+                // Calculate ranks (handling ties)
+                let currentRank = 1;
+                sortedPlayers.forEach((player, index) => {
+                    if (index > 0) {
+                        const prevPlayer = sortedPlayers[index - 1];
+                        const scorePrev = scores[prevPlayer.id] || 0;
+                        const scoreCurr = scores[player.id] || 0;
+                        const timePrev = (timeTaken && timeTaken[prevPlayer.id]) ?? Infinity;
+                        const timeCurr = (timeTaken && timeTaken[player.id]) ?? Infinity;
+                        
+                        if (scoreCurr !== scorePrev || timeCurr !== timePrev) {
+                            currentRank = index + 1;
+                        }
+                    }
+
+                    const score = scores[player.id] || 0;
+
+                    const item = document.createElement('div');
+                    item.className = 'leaderboard-item';
+                    if (player.id === myId) {
+                        item.classList.add('highlight-me');
+                    }
+                    if (currentRank === 1) {
+                        item.classList.add('rank-1');
+                    }
+
+                    const rankEl = document.createElement('span');
+                    rankEl.className = 'leaderboard-rank';
+                    rankEl.innerText = `#${currentRank}`;
+
+                    const nameEl = document.createElement('span');
+                    nameEl.className = 'leaderboard-name';
+                    nameEl.innerText = player.name;
+
+                    const statsEl = document.createElement('div');
+                    statsEl.className = 'leaderboard-stats';
+
+                    const pointsEl = document.createElement('span');
+                    pointsEl.className = 'leaderboard-points';
+                    pointsEl.innerText = `${score} pts`;
+
+                    statsEl.appendChild(pointsEl);
+
+                    // Only show time if there was a score tie (tiebreaker was used)
+                    if (showTimeTiebreaker) {
+                        const time = timeTaken ? timeTaken[player.id] : null;
+                        const timeStr = (time !== undefined && time !== null) ? `${time}s` : '--';
+                        const timeEl = document.createElement('span');
+                        timeEl.className = 'leaderboard-time';
+                        timeEl.innerText = timeStr;
+                        statsEl.appendChild(timeEl);
+                    }
+
+                    item.appendChild(rankEl);
+                    item.appendChild(nameEl);
+                    item.appendChild(statsEl);
+
+                    listContainer.appendChild(item);
+                });
+
+                leaderboardSection.appendChild(listContainer);
+
+                // Show the tiebreaker info button when timer was used
+                const infoBtn = document.getElementById('tiebreakerInfoBtn');
+                if (infoBtn) {
+                    infoBtn.style.display = showTimeTiebreaker ? 'inline-flex' : 'none';
+                    if (showTimeTiebreaker) {
+                        infoBtn.classList.add('pulse');
+                        // Stop pulsing after 8s so it doesn't become annoying
+                        setTimeout(() => infoBtn.classList.remove('pulse'), 8000);
+                    }
+                }
+
+                // Pre-fill the winner note inside the dialog
+                if (showTimeTiebreaker && winner) {
+                    const note = document.getElementById('tiebreakerWinnerNote');
+                    if (note) {
+                        const winnerTime = timeTaken && timeTaken[winner.id] != null
+                            ? `${timeTaken[winner.id]}s` : null;
+                        const isMe = winner.id === myId;
+                        note.style.display = 'block';
+                        note.innerHTML = isMe
+                            ? `<strong style="color:var(--neon-lime);">You won the tiebreaker</strong> because you had the same score as another player but finished${winnerTime ? ` in <strong style="color:var(--neon-lime);">${winnerTime}</strong>` : ''} faster than everyone else who tied.`
+                            : `<strong style="color:var(--neon-cyan);">${winner.name}</strong> won the tiebreaker by finishing${winnerTime ? ` in <strong style="color:var(--neon-cyan);">${winnerTime}</strong>` : ''} faster than the other tied players.`;
+                    }
+                }
+            }
+
             if (isHost) document.getElementById('restartBtn').style.display = 'block';
             else document.getElementById('restartHint').style.display = 'flex';
+        }
+
+        socket.on('endGameResponse', d => {
+            showEndGame(d.winner, d.scores || {}, d.timeTaken || {}, d.players || []);
         });
 
         initGrids();
@@ -1270,10 +1931,33 @@
         document.addEventListener('keyup', function(e) {
             if (e.key !== 'Enter') return;
             const tag = document.activeElement && document.activeElement.tagName;
-            // Only act if focus is on a cube input (not a button etc.)
-            if (tag === 'INPUT') {
-                if (currentPhase === 'SETUP') guardedSubmit(submitWords);
-                else if (currentPhase === 'ACTIVE') guardedSubmit(submitGuess);
+            if (tag !== 'INPUT') return;
+
+            if (currentPhase === 'SETUP') {
+                const cubeId = document.activeElement.parentElement?.id; // e.g. "w_3_2"
+                if (!cubeId || !cubeId.startsWith('w_')) return;
+                const rowIdx = parseInt(cubeId.split('_')[1]);
+                const word = getRowWord('w', rowIdx).toLowerCase();
+                // Validate current row
+                if (word.length < 2) {
+                    triggerRowShake(rowIdx);
+                    showNotification(`Word too short`, 'error');
+                    return;
+                }
+                if (isLikelyPlural(word)) {
+                    triggerRowShake(rowIdx, true);
+                    showNotification('No Plurals', 'error');
+                    return;
+                }
+                // Move to next row if not the last, else trigger full submit
+                if (rowIdx < 6) {
+                    const nextInput = document.getElementById(`w_${rowIdx + 1}_0`)?.querySelector('input');
+                    if (nextInput && !nextInput.disabled) nextInput.focus();
+                } else {
+                    guardedSubmit(submitWords);
+                }
+            } else if (currentPhase === 'ACTIVE') {
+                guardedSubmit(submitGuess);
             }
         });
     </script>

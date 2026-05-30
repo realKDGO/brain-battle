@@ -38,17 +38,28 @@ function computeWinner(room) {
   const { gameData, players } = room;
   if (!gameData.scores) return null;
 
-  let best = -Infinity;
-  let tied = false;
+  let bestScore = -Infinity;
+  let bestTime = Infinity;
   let winnerId = null;
+  let tied = false;
 
-  for (const [id, score] of Object.entries(gameData.scores)) {
-    if (score > best) {
-      best = score;
-      winnerId = id;
+  for (const player of players) {
+    const score = gameData.scores[player.id] || 0;
+    const time = (gameData.timeTaken && gameData.timeTaken[player.id]) ?? Infinity;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestTime = time;
+      winnerId = player.id;
       tied = false;
-    } else if (score === best) {
-      tied = true;
+    } else if (score === bestScore) {
+      if (time < bestTime) {
+        bestTime = time;
+        winnerId = player.id;
+        tied = false;
+      } else if (time === bestTime) {
+        tied = true;
+      }
     }
   }
 
@@ -102,6 +113,7 @@ function startGame(roomCode) {
   // Pick a random starting player
   room.gameData.currentPlayerIndex = Math.floor(Math.random() * room.players.length);
   room.gameData.round = (room.gameData.round || 0) + 1;
+  room.gameData.startTime = Date.now();
   room.gameState = GAME_STATE.ACTIVE;
 
   console.log(

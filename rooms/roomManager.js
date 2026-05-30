@@ -31,6 +31,8 @@ function createRoom(socketId, playerName, gameType) {
   rooms[roomCode] = {
     host: socketId,
     players: [{ id: socketId, name: playerName }],
+    maxPlayers: 2,
+    pendingJoinRequests: [],
     gameMode: gameType,
     gameState: "LOBBY",
     gameData: {},
@@ -77,8 +79,13 @@ function joinRoom(socketId, roomCode, playerName, gameType) {
     }
   }
 
-  if (room.players.length >= 2) {
-    return { success: false, error: "Room is full (max 2 players)." };
+  if (room.players.length >= (room.maxPlayers || 2)) {
+    return {
+      success: false,
+      status: 'waiting_for_host',
+      hostId: room.host,
+      error: 'Lobby is full. Waiting for host decision...',
+    };
   }
 
   room.players.push({ id: socketId, name: playerName });
@@ -160,6 +167,16 @@ function getRooms() {
   return rooms;
 }
 
+/**
+ * Update maxPlayers for a room. Clamped to 1-8.
+ */
+function updateMaxPlayers(roomCode, newMax) {
+  const room = rooms[roomCode];
+  if (!room) return null;
+  room.maxPlayers = Math.max(1, Math.min(8, newMax));
+  return room;
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -169,4 +186,5 @@ module.exports = {
   findRoomBySocket,
   getRoom,
   getRooms,
+  updateMaxPlayers,
 };

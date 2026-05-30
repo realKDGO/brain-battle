@@ -427,10 +427,14 @@
             letter-spacing: 1px;
             text-transform: uppercase;
             transition: var(--transition);
-            z-index: 10;
+            z-index: 9999;
             display: flex;
             align-items: center;
             gap: 6px;
+            /* Ensure fixed works on iOS Safari even with backdrop-filter ancestors */
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            will-change: transform;
         }
         .back-link:hover { color: var(--neon-pink); }
         .back-link::before { content: '←'; font-size: 1.1em; }
@@ -449,7 +453,7 @@
         <div class="card" id="card_WORD_CHAIN" onclick="selectGame('WORD_CHAIN', event)">
             <div class="icon">🔗</div>
             <h3>Word Chain</h3>
-            <p class="card-desc">Build a 7-word compound chain, then guess your opponent's hidden words to score points.</p>
+            <p class="card-desc">Guess hidden compound words one by one. Score points per word — fewer hints used means a higher word score.</p>
 
             <div class="card-actions" id="actions_WORD_CHAIN">
                 <div class="card-actions-inner">
