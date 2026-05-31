@@ -480,6 +480,16 @@
                 <option value="8">8</option>
             </select>
         </div>
+        <!-- BO selector: Connect Letters only -->
+        <div class="host-settings" id="boSettings" style="display:none;">
+            <span class="label" style="margin-bottom:0;">FORMAT</span>
+            <select id="boSelect" onchange="updateBO(this.value)">
+                <option value="3">BO3</option>
+                <option value="5">BO5</option>
+                <option value="7">BO7</option>
+            </select>
+        </div>
+        <div id="boDisplay" style="display:none;text-align:center;font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--neon-cyan);margin-bottom:4px;"></div>
 
         <div class="players-section">
             <div class="section-header">
@@ -639,10 +649,16 @@
         function updateMaxPlayers(val) {
             socket.emit('updateRoomSettings', { maxPlayers: parseInt(val) });
         }
+        function updateBO(val) {
+            socket.emit('clBOSelect', { bo: parseInt(val) });
+        }
 
         socket.on('roomUpdate', r => {
             if (r.gameState !== "LOBBY") {
-                window.location.href = `game.html?room=${roomCode}&game=${gameType}`;
+                const dest = (gameType === 'CONNECT_LETTERS')
+                    ? `connectletters.html?room=${roomCode}`
+                    : `game.html?room=${roomCode}&game=${gameType}`;
+                window.location.href = dest;
                 return;
             }
 
@@ -683,6 +699,10 @@
                 const settings = document.getElementById('hostSettings');
                 settings.style.display = 'flex';
                 document.getElementById('maxPlayersSelect').value = max;
+                const boSettingsEl = document.getElementById('boSettings');
+                const showBO = (gameType === 'CONNECT_LETTERS') && max >= 2;
+                if (boSettingsEl) boSettingsEl.style.display = showBO ? 'flex' : 'none';
+                if (r.clBO && showBO) { const boSel = document.getElementById('boSelect'); if (boSel) boSel.value = r.clBO; }
                 startBtn.style.display = 'block';
                 if (max === 1) {
                     // Single player: host can start immediately
@@ -691,6 +711,13 @@
                 } else {
                     startBtn.disabled = r.players.length < max;
                     startBtn.innerText = r.players.length < max ? 'Waiting for players...' : 'Start Game';
+                }
+            } else {
+                const boDisp = document.getElementById('boDisplay');
+                if (boDisp) {
+                    const showBODisp = (gameType === 'CONNECT_LETTERS') && r.players.length >= 2;
+                    boDisp.style.display = showBODisp ? 'block' : 'none';
+                    boDisp.innerText = r.clBO ? 'Format: BO' + r.clBO : 'Format: BO3';
                 }
             }
         });

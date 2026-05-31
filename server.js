@@ -275,8 +275,11 @@ io.on("connection", (socket) => {
   socket.on("leaveRoom", () => handleLeave(socket));
 
   // ── disconnect ─────────────────────────────────────────────────────────────
-  socket.on("disconnect", () => {
-    console.log(`[-] Disconnected: ${socket.id}`);
+  socket.on("disconnect", (reason) => {
+    // Note: disconnects after lobby→game navigation are expected (page unload).
+    // The player reconnects with a new socket ID on the new page.
+    const roomCode = findRoomBySocket(socket.id) || '(not in room)';
+    console.log(`[-] Disconnected: ${socket.id} | reason: ${reason} | room: ${roomCode}`);
     handleLeave(socket);
   });
 
@@ -296,9 +299,22 @@ io.on("connection", (socket) => {
     const result = startSetup(roomCode);
     socket.emit("startSetupResponse", { success: result.success, error: result.error });
     if (result.success) {
-      // Initialise dict flag so all clients receive it on first roomUpdate
       if (typeof room.dictEnabled === 'undefined') room.dictEnabled = true;
-      room.dictRequestCounts = {}; // reset per-session request counts
+      room.dictRequestCounts = {};
+
+      if (room.gameMode === 'CONNECT_LETTERS') {
+        // CL skips the cube setup phase. Move straight to ACTIVE.
+        // startGame() increments round by 1, and startRound() also increments by 1.
+        // Set round = -1 so startGame makes it 0, and startRound makes it 1.
+        room.gameData.round = -1;
+        const startResult = startGame(roomCode);
+        if (startResult.success) {
+          io.to(roomCode).emit('gameStarted', { payload: startResult.payload });
+          broadcastRoomUpdate(roomCode, room);
+        }
+        return;
+      }
+
       const allSubmitted = room.players.every(p => room.gameData.chains && room.gameData.chains[p.id] && room.gameData.chains[p.id].submitted);
       if (allSubmitted) {
         const startResult = startGame(roomCode);
@@ -530,6 +546,189 @@ io.on("connection", (socket) => {
     }
     // Clean up pending entry
     if (room._pendingDictRequests) delete room._pendingDictRequests[requesterId];
+  });
+
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // CONNECT LETTERS — socket handlers
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // Helper: emit current CL state to whole room
+  function clBroadcast(roomCode, room, event, extra = {}) {
+    const gd = room.gameData;
+    io.to(roomCode).emit(event, {
+      round:       gd.round,
+      roundState:  gd.roundState,
+      startLetter: gd.startLetter,
+      endLetter:   gd.endLetter,
+      roundWins:   gd.roundWins,
+      bo:          gd.bo,
+      winsNeeded:  gd.winsNeeded,
+      ...extra,
+    });
+  }
+
+  // ── clStartRound (host triggers each new round) ───────────────────────────
+  socket.on('clStartRound', () => {
+    const ctx = requireRoom(socket, 'clStartRound');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (rejectIfNotHost(socket, room, 'clStartRound')) return;
+    if (room.gameMode !== 'CONNECT_LETTERS') return;
+
+    const mod = require('./games/index').getGameModule('CONNECT_LETTERS');
+    const info = mod.startRound(room.gameData);
+    room.gameState = 'ACTIVE';
+
+    if (info.roundState === 'ACTIVE') {
+      // System letters (1P solo or 3P+ Royal Rumble)
+      const isSolo = room.players.length === 1;
+      clBroadcast(roomCode, room, 'clRoundStart', {
+        countdown: 3,
+        soloTimer: isSolo ? 15 : null,
+      });
+      if (isSolo) {
+        // Schedule 15s expiry: if still ACTIVE (no word submitted), generate new letters
+        const thisRound = room.gameData.round;
+        setTimeout(() => {
+          if (
+            room.gameData &&
+            room.gameData.roundState === 'ACTIVE' &&
+            room.gameData.round === thisRound
+          ) {
+            const mod3 = require('./games/index').getGameModule('CONNECT_LETTERS');
+            mod3.startRound(room.gameData); // increments round, picks new letters
+            room.gameState = 'ACTIVE';
+            clBroadcast(roomCode, room, 'clRoundStart', {
+              countdown: 0,
+              soloTimer: 15,
+              autoStart: true,
+              timerExpired: true,
+            });
+            broadcastRoomUpdate(roomCode, room);
+          }
+        }, 15000 + 3000 + 1700); // 15s + 3s countdown + ~1.7s reveal animation
+      }
+    } else {
+      // 2P — letter input phase; countdown starts only after both letters submitted
+      clBroadcast(roomCode, room, 'clLetterInputPhase', {});
+    }
+    broadcastRoomUpdate(roomCode, room);
+  });
+
+  // ── clLetterSubmit (2p setup: each player submits one letter) ─────────────
+  socket.on('clLetterSubmit', async ({ letter } = {}) => {
+    const ctx = requireRoom(socket, 'clLetterSubmit');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (room.gameMode !== 'CONNECT_LETTERS') return;
+
+    const mod = require('./games/index').getGameModule('CONNECT_LETTERS');
+    const result = mod.handleSetup(room.gameData, socket.id, { letter });
+
+    socket.emit('clLetterSubmitResponse', { success: result.success, error: result.error, waiting: result.waiting });
+
+    if (result.success && result.ready) {
+      // Both letters in — countdown begins now (2P only, no solo timer)
+      clBroadcast(roomCode, room, 'clRoundStart', { countdown: 3, soloTimer: null });
+      broadcastRoomUpdate(roomCode, room);
+    }
+  });
+
+  // ── clWordSubmit (active play: player submits a word) ─────────────────────
+  socket.on('clWordSubmit', async ({ word } = {}) => {
+    const ctx = requireRoom(socket, 'clWordSubmit');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (room.gameMode !== 'CONNECT_LETTERS') return;
+
+    socket.emit('clValidating', { word });
+
+    const mod    = require('./games/index').getGameModule('CONNECT_LETTERS');
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    const result = await mod.handleAction(room.gameData, player, { word });
+
+    if (result.success) {
+      // Round won
+      const matchOver = result.matchWon;
+      io.to(roomCode).emit('clRoundEnd', {
+        roundWinner:    result.roundWinner,
+        word:           result.word,
+        roundWins:      result.roundWins,
+        matchWon:       matchOver,
+        matchWinner:    result.matchWinner,
+        isSolo:         result.isSolo,
+        soloWordCount:  result.soloWordCount,
+      });
+
+      if (result.isSolo) {
+        // Endless solo: immediately start a new round with fresh letters + 15s timer
+        const mod2 = require('./games/index').getGameModule('CONNECT_LETTERS');
+        const info = mod2.startRound(room.gameData);
+        room.gameState = 'ACTIVE';
+        clBroadcast(roomCode, room, 'clRoundStart', {
+          countdown: 0,
+          soloTimer: 15,
+          autoStart: true,
+        });
+        broadcastRoomUpdate(roomCode, room);
+      } else if (matchOver) {
+        const { endRound, endGame } = require('./engine/gameEngine');
+        endRound(roomCode);
+        const eg = endGame(roomCode);
+        const winner = room.players.find(p => p.id === result.matchWinner) || null;
+        io.to(roomCode).emit('endGameResponse', {
+          winner,
+          scores:    room.gameData.roundWins,
+          players:   room.players,
+          roundWins: room.gameData.roundWins,
+          bo:        room.gameData.bo,
+        });
+        broadcastRoomUpdate(roomCode, room);
+      } else {
+        broadcastRoomUpdate(roomCode, room);
+      }
+
+    } else if (result.invalidWord) {
+      // Invalid word — challenge opponents
+      socket.emit('clWordRejected', { word, error: result.error });
+      const others = room.players.filter(p => p.id !== socket.id);
+      if (others.length) {
+        room.gameData.roundState     = 'CHALLENGE';
+        room.gameData.challengeActive = true;
+        room.gameData.challengeDeadline = Date.now() + 8000;
+        io.to(roomCode).emit('clChallenge', {
+          challengerSocket: socket.id,
+          timerMs: 8000,
+          startLetter: room.gameData.startLetter,
+          endLetter:   room.gameData.endLetter,
+        });
+        // Auto-expire
+        setTimeout(() => {
+          if (room.gameData.challengeActive) {
+            room.gameData.challengeActive = false;
+            room.gameData.roundState = 'ACTIVE';
+            io.to(roomCode).emit('clChallengeExpired', {});
+          }
+        }, 8100);
+      }
+    } else {
+      socket.emit('clWordRejected', { word, error: result.error });
+    }
+  });
+
+  // ── clBOSelect (host picks match format in lobby) ─────────────────────────
+  socket.on('clBOSelect', ({ bo } = {}) => {
+    const ctx = requireRoom(socket, 'clBOSelect');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (rejectIfNotHost(socket, room, 'clBOSelect')) return;
+    if (![3, 5, 7].includes(bo)) return;
+    if (room.players.length < 2) return; // BO format not used in solo mode
+    room.clBO = bo;
+    broadcastRoomUpdate(roomCode, room);
   });
 
   // ── nextTurn ───────────────────────────────────────────────────────────────

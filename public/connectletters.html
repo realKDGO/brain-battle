@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Battle — Connect the Letters</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:#0A0A0F; --surface:rgba(20,20,32,0.7); --surface-solid:#141420;
+            --surface-border:rgba(255,255,255,0.06); --neon-pink:#FF2D78;
+            --neon-lime:#A3FF12; --neon-violet:#8B5CF6; --neon-cyan:#00F0FF;
+            --text-primary:#F0F0F5; --text-muted:#6B6B80; --error:#FF4757;
+        }
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text-primary);
+            display:flex;flex-direction:column;align-items:center;justify-content:center;
+            min-height:100vh;padding:20px;overflow-x:hidden;position:relative;}
+        body::before{content:'';position:fixed;inset:0;background:
+            radial-gradient(ellipse 500px 350px at 50% 20%,rgba(139,92,246,0.05) 0%,transparent 70%),
+            radial-gradient(ellipse 400px 300px at 20% 80%,rgba(255,45,120,0.03) 0%,transparent 70%);
+            pointer-events:none;z-index:0;}
+        body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
+
+        .game-container{width:100%;max-width:560px;display:flex;flex-direction:column;
+            align-items:center;margin:0 auto;position:relative;z-index:1;gap:0;}
+
+        /* ── Phase header ─────────────────────────────── */
+        .phase-header{width:100%;display:flex;align-items:center;justify-content:space-between;
+            margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.06);}
+        .phase-header h1{font-size:0.72em;font-weight:900;letter-spacing:4px;
+            text-transform:uppercase;color:var(--text-muted);}
+
+        /* ── Buttons ──────────────────────────────────── */
+        button{font-family:'Outfit',sans-serif;font-size:0.88em;font-weight:700;
+            letter-spacing:1.5px;text-transform:uppercase;border:none;border-radius:8px;
+            cursor:pointer;padding:12px 20px;transition:all 0.15s ease;}
+        .primary-btn{background:var(--neon-pink);color:#fff;}
+        .primary-btn:hover{filter:brightness(1.1);}
+        .primary-btn:disabled{opacity:0.4;cursor:not-allowed;}
+        .secondary-btn{background:rgba(255,255,255,0.08);color:var(--text-primary);
+            border:1px solid rgba(255,255,255,0.12);}
+        .success-btn{background:var(--neon-lime);color:#0A0A0F;}
+        .success-btn:hover{filter:brightness(1.08);}
+        .btn-ghost{background:transparent;color:var(--text-muted);border:1px solid rgba(255,255,255,0.1);}
+
+        /* ── Snackbar notification ────────────────────── */
+        #snackbar{position:absolute;left:50%;transform:translateX(-50%);
+            background:rgba(20,20,28,0.95);color:var(--neon-pink);
+            border:1px solid rgba(255,45,120,0.3);border-radius:8px;
+            padding:8px 18px;font-size:0.82em;font-weight:700;letter-spacing:1px;
+            text-transform:uppercase;white-space:nowrap;opacity:0;pointer-events:none;
+            z-index:3000;transition:opacity 0.2s ease;}
+        #snackbar.show{opacity:1;}
+
+        /* ── Dialog / Overlay ─────────────────────────── */
+        .dialog-overlay{display:none;position:fixed;inset:0;background:rgba(10,10,15,0.85);
+            backdrop-filter:blur(8px);z-index:2000;align-items:center;justify-content:center;
+            opacity:0;transition:opacity 0.3s ease;}
+        .dialog-overlay.show{display:flex;opacity:1;}
+        .dialog-card{background:rgba(18,18,28,0.98);border:1px solid rgba(255,255,255,0.1);
+            border-radius:16px;padding:28px 24px;width:100%;max-width:360px;
+            box-shadow:0 20px 60px rgba(0,0,0,0.5);}
+        .dialog-card h3{font-size:1em;font-weight:900;letter-spacing:3px;text-transform:uppercase;
+            margin-bottom:14px;}
+        .dialog-card p{font-size:0.88em;color:var(--text-muted);line-height:1.6;margin-bottom:20px;}
+        .dialog-actions{display:flex;gap:10px;justify-content:flex-end;}
+
+        /* ── Waiting banner ───────────────────────────── */
+        .cl-waiting{padding:12px 16px;border-radius:8px;background:rgba(139,92,246,0.1);
+            border:1px solid rgba(139,92,246,0.25);color:var(--neon-violet);font-size:0.82em;
+            font-weight:700;text-transform:uppercase;letter-spacing:1.5px;text-align:center;width:100%;}
+
+        /* ── Letter input phase ───────────────────────── */
+        .cl-letter-prompt{text-align:center;width:100%;}
+        .cl-letter-prompt h2{font-size:1.1em;text-transform:uppercase;letter-spacing:3px;
+            color:var(--text-muted);margin-bottom:16px;}
+        .cl-letter-input-wrap{display:flex;align-items:center;justify-content:center;gap:12px;}
+        .cl-letter-box{width:64px;height:64px;border:2px solid rgba(255,255,255,0.15);
+            border-radius:10px;background:rgba(255,255,255,0.04);color:var(--text-primary);
+            font-family:'JetBrains Mono',monospace;font-size:2em;font-weight:900;
+            text-align:center;text-transform:uppercase;outline:none;
+            transition:border-color 0.2s,box-shadow 0.2s;caret-color:var(--neon-cyan);}
+        .cl-letter-box:focus{border-color:var(--neon-cyan);box-shadow:0 0 12px rgba(0,240,255,0.25);}
+
+        /* ── Active play phase ────────────────────────── */
+        .cl-assignment{display:flex;align-items:center;justify-content:center;gap:20px;
+            padding:18px 28px;border-radius:12px;background:rgba(255,255,255,0.04);
+            border:1px solid rgba(255,255,255,0.08);width:100%;}
+        .cl-letter-badge{display:flex;flex-direction:column;align-items:center;gap:4px;}
+        .cl-letter-badge-val{font-family:'JetBrains Mono',monospace;font-size:2.4em;font-weight:900;line-height:1;}
+        .cl-letter-badge-val.start{color:var(--neon-cyan);}
+        .cl-letter-badge-val.end{color:var(--neon-pink);}
+        .cl-letter-badge-lbl{font-size:0.65em;font-weight:700;text-transform:uppercase;
+            letter-spacing:1.5px;color:var(--text-muted);}
+        .cl-pattern{font-family:'JetBrains Mono',monospace;font-size:1.3em;font-weight:700;
+            color:var(--text-muted);letter-spacing:4px;}
+        .cl-pattern span.s{color:var(--neon-cyan);}
+        .cl-pattern span.e{color:var(--neon-pink);}
+        .cl-word-form{display:flex;gap:10px;width:100%;}
+        .cl-word-input{flex:1;padding:14px 16px;background:rgba(255,255,255,0.05);
+            border:1.5px solid rgba(255,255,255,0.12);border-radius:8px;color:var(--text-primary);
+            font-size:1.05em;font-weight:600;text-transform:uppercase;letter-spacing:2px;
+            outline:none;font-family:'JetBrains Mono',monospace;
+            transition:border-color 0.2s,box-shadow 0.2s;}
+        .cl-word-input:focus{border-color:var(--neon-cyan);box-shadow:0 0 12px rgba(0,240,255,0.15);}
+        .cl-word-input:disabled{opacity:0.4;cursor:not-allowed;}
+        .cl-word-list{width:100%;display:flex;flex-direction:column;gap:6px;
+            max-height:220px;overflow-y:auto;}
+        .cl-word-entry{display:flex;justify-content:space-between;align-items:center;
+            padding:9px 14px;border-radius:7px;background:rgba(255,255,255,0.03);
+            border:1px solid rgba(255,255,255,0.06);font-size:0.88em;}
+        .cl-word-entry-word{font-family:'JetBrains Mono',monospace;font-weight:700;
+            letter-spacing:1px;text-transform:uppercase;color:var(--neon-lime);}
+        .cl-word-entry-round{font-size:0.75em;color:var(--text-muted);}
+
+        /* ── Challenge banner ─────────────────────────── */
+        .cl-challenge-banner{display:none;width:100%;padding:14px 18px;border-radius:10px;
+            background:rgba(255,45,120,0.1);border:1px solid rgba(255,45,120,0.3);text-align:center;}
+        .cl-challenge-banner.active{display:block;}
+        .cl-challenge-banner h4{color:var(--neon-pink);margin:0 0 6px;font-size:0.85em;
+            text-transform:uppercase;letter-spacing:2px;}
+        .cl-challenge-timer{font-family:'JetBrains Mono',monospace;font-size:2em;
+            font-weight:900;color:var(--neon-pink);}
+
+        /* ── Countdown overlay ────────────────────────── */
+        #clCountdownOverlay{display:none;position:fixed;inset:0;background:rgba(10,10,15,0.92);
+            backdrop-filter:blur(12px);z-index:2010;align-items:center;justify-content:center;
+            flex-direction:column;gap:12px;text-align:center;}
+        #clCountdownOverlay.show{display:flex;}
+        .cl-countdown-num{font-family:'JetBrains Mono',monospace;font-size:6em;font-weight:900;
+            color:var(--neon-cyan);text-shadow:0 0 40px rgba(0,240,255,0.6);}
+        .cl-countdown-lbl{font-size:0.85em;font-weight:700;text-transform:uppercase;
+            letter-spacing:3px;color:var(--text-muted);}
+
+        /* ── Validating overlay ───────────────────────── */
+        #clValidatingOverlay{display:none;position:fixed;inset:0;background:rgba(10,10,15,0.80);
+            backdrop-filter:blur(8px);z-index:2010;align-items:center;justify-content:center;}
+        #clValidatingOverlay.show{display:flex;}
+        .cl-validating-card{padding:28px 36px;border-radius:14px;background:rgba(20,20,28,0.95);
+            border:1px solid rgba(0,240,255,0.2);text-align:center;}
+        .cl-validating-card p{margin:0;font-size:0.9em;color:var(--text-muted);
+            text-transform:uppercase;letter-spacing:2px;}
+        .cl-validating-word{font-family:'JetBrains Mono',monospace;font-size:1.6em;
+            font-weight:900;color:var(--neon-cyan);margin-top:8px;}
+        @keyframes spin{to{transform:rotate(360deg);}}
+        .cl-spinner{width:32px;height:32px;border:3px solid rgba(0,240,255,0.2);
+            border-top-color:var(--neon-cyan);border-radius:50%;
+            animation:spin 0.8s linear infinite;margin:14px auto 0;}
+
+        /* ── End game ─────────────────────────────────── */
+        #endGameContainer{width:100%;display:flex;flex-direction:column;align-items:center;
+            gap:0;padding-top:8px;}
+        #endMsg{font-size:1.2em;font-weight:900;letter-spacing:4px;text-transform:uppercase;
+            margin-bottom:20px;}
+        .leaderboard-row{display:flex;align-items:center;justify-content:space-between;
+            width:100%;padding:14px 18px;border-radius:10px;margin-bottom:8px;
+            background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);}
+        .leaderboard-row.me{border-color:rgba(0,240,255,0.2);}
+        .leaderboard-name{font-weight:700;font-size:0.9em;}
+        .leaderboard-wins{font-family:'JetBrains Mono',monospace;font-size:1.4em;
+            font-weight:900;color:var(--neon-lime);}
+    </style>
+</head>
+<body>
+<div class="game-container" style="gap:0;position:relative;">
+    <div id="snackbar"></div>
+
+    <!-- Phase header -->
+    <div class="phase-header">
+        <h1 id="phaseTitle">Connect the Letters</h1>
+        <div style="font-size:0.72em;font-weight:700;color:var(--text-muted);letter-spacing:2px;" id="roundLabel"></div>
+    </div>
+
+    <!-- ── Round win pips ─────────────────────────────────────────────── -->
+    <div id="clScoreBar" style="display:flex;width:100%;border-radius:8px;overflow:hidden;
+        background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
+        margin-bottom:16px;"></div>
+
+    <!-- ── LETTER SUBMISSION VIEW (2P only) ──────────────────────────── -->
+    <div id="clLetterView" style="display:none;flex-direction:column;align-items:center;width:100%;gap:20px;">
+        <div class="cl-letter-prompt">
+            <h2>Choose Your Letter</h2>
+            <p style="color:var(--text-muted);font-size:0.85em;margin-bottom:18px;">
+                Your letter will become part of the word pattern. Keep it secret!
+            </p>
+            <div class="cl-letter-input-wrap">
+                <input id="clLetterInput" class="cl-letter-box" maxlength="1"
+                    autocomplete="off" spellcheck="false" placeholder="?" />
+            </div>
+        </div>
+        <div id="clLetterWaiting" class="cl-waiting" style="display:none;">Waiting for opponent…</div>
+        <button id="clLetterSubmitBtn" class="primary-btn" style="width:100%;" onclick="clSubmitLetter()">Lock In Letter</button>
+    </div>
+
+    <!-- ── ACTIVE PLAY VIEW ───────────────────────────────────────────── -->
+    <div id="clActiveView" style="display:none;flex-direction:column;align-items:center;width:100%;gap:16px;">
+        <div id="clWaitingMsg" class="cl-waiting" style="display:none;">Waiting for host to start the round…</div>
+
+        <!-- Letter assignment display -->
+        <div class="cl-assignment">
+            <div class="cl-letter-badge">
+                <span id="clStartLetter" class="cl-letter-badge-val start">?</span>
+                <span class="cl-letter-badge-lbl">Start</span>
+            </div>
+            <div style="flex:1;text-align:center;">
+                <div id="clPattern" class="cl-pattern"><span class="s">?</span> _ _ _ <span class="e">?</span></div>
+                <div style="font-size:0.7em;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Pattern</div>
+            </div>
+            <div class="cl-letter-badge">
+                <span id="clEndLetter" class="cl-letter-badge-val end">?</span>
+                <span class="cl-letter-badge-lbl">End</span>
+            </div>
+        </div>
+
+        <!-- Challenge banner -->
+        <!-- Solo 15s timer bar -->
+        <div id="clSoloTimerBar" style="display:none;width:100%;align-items:center;gap:10px;margin-bottom:12px;">
+            <span id="clSoloTimerLabel" style="font-family:'JetBrains Mono',monospace;font-size:0.9em;color:var(--neon-cyan);min-width:28px;text-align:right;">15s</span>
+            <div style="flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;">
+                <div id="clSoloTimerFill" style="height:100%;width:100%;border-radius:3px;background:var(--neon-cyan);transition:width 1s linear,background 1s;"></div>
+            </div>
+        </div>
+        <div id="clChallengeBanner" class="cl-challenge-banner">
+            <h4>⚡ Submit a Valid Word to Win This Round!</h4>
+            <div id="clChallengeTimer" class="cl-challenge-timer">8</div>
+        </div>
+
+        <!-- Word input -->
+        <div class="cl-word-form">
+            <input id="clWordInput" class="cl-word-input" placeholder="TYPE YOUR WORD…"
+                autocomplete="off" spellcheck="false" maxlength="30" />
+            <button class="primary-btn" onclick="clSubmitWord()" style="white-space:nowrap;padding:0 20px;">Submit</button>
+        </div>
+
+        <!-- Accepted words this round -->
+        <div id="clWordList" class="cl-word-list"></div>
+
+        <!-- Host: start next round after round ends -->
+        <button id="clNextRoundBtn" class="success-btn" style="display:none;width:100%;" onclick="clStartNextRound()">Next Round →</button>
+    </div>
+
+    <!-- ── END GAME ───────────────────────────────────────────────────── -->
+    <div id="endGameContainer" style="display:none;width:100%;flex-direction:column;align-items:center;gap:0;">
+        <div id="endMsg" style="margin-bottom:20px;"></div>
+        <div id="leaderboardSection" style="width:100%;margin-bottom:20px;"></div>
+        <div style="display:flex;gap:12px;width:100%;">
+            <button id="restartBtn" class="success-btn" onclick="restartGame()" style="display:none;flex:1;">Play Again</button>
+            <div id="restartHint" style="display:none;flex:1;padding:12px 16px;border-radius:8px;
+                background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);
+                color:var(--neon-violet);font-size:0.78em;font-weight:700;text-transform:uppercase;
+                letter-spacing:1.5px;text-align:center;align-items:center;justify-content:center;">
+                Waiting for host…
+            </div>
+            <button class="secondary-btn" onclick="window.location.href='select.html'" style="flex:1;">Game Selection</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Countdown overlay ─────────────────────────────────────────────── -->
+<div id="clCountdownOverlay">
+    <div class="cl-countdown-lbl">Game Starts In</div>
+    <div id="clCountdownNum" class="cl-countdown-num">3</div>
+    <div id="clLettersReveal" style="display:none;margin-top:16px;"></div>
+</div>
+
+<!-- ── Validating overlay ─────────────────────────────────────────────── -->
+<div id="clValidatingOverlay">
+    <div class="cl-validating-card">
+        <p>Validating</p>
+        <div id="clValidatingWord" class="cl-validating-word"></div>
+        <div class="cl-spinner"></div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    // ── Boot ─────────────────────────────────────────────────────────────
+    const playerName = sessionStorage.getItem('playerName');
+    if (!playerName) window.location.href = 'index.html';
+    const params       = new URLSearchParams(window.location.search);
+    const roomCodeParam = params.get('room');
+    if (!roomCodeParam) window.location.href = 'select.html';
+
+    const socket = io();
+    let myId       = null;
+    let isHost     = false;
+    let clBo       = 3;
+    let clStartLetter = null;
+    let clEndLetter   = null;
+    let clRoundWins   = {};
+    let clChallengeTimer   = null;
+    let clCountdownInterval = null;
+    let activeNotification  = null;
+
+    // ── Notification ────────────────────────────────────────────────────
+    function showNotification(msg) {
+        const sb = document.getElementById('snackbar');
+        sb.innerText = msg;
+        sb.className = 'show';
+        if (activeNotification) clearTimeout(activeNotification);
+        activeNotification = setTimeout(() => { sb.className = ''; activeNotification = null; }, 2200);
+    }
+
+    // ── View helpers ────────────────────────────────────────────────────
+    function clHideAll() {
+        ['clLetterView','clActiveView','endGameContainer'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+    }
+    function clShow(id, displayType = 'flex') {
+        clHideAll();
+        const el = document.getElementById(id);
+        if (el) el.style.display = displayType;
+    }
+
+    // ── Score pip bar ────────────────────────────────────────────────────
+    function clUpdateScoreBar(roundWins, players, winsNeeded) {
+        const bar = document.getElementById('clScoreBar');
+        if (!bar || !players) return;
+        bar.innerHTML = '';
+        players.forEach(p => {
+            const wins = roundWins[p.id] || 0;
+            const isMe = p.id === myId;
+            const div  = document.createElement('div');
+            div.style.cssText = 'flex:1;text-align:center;padding:8px 4px;';
+            let pips = '';
+            for (let i = 0; i < winsNeeded; i++) {
+                const f = i < wins;
+                pips += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 2px;background:${
+                    f ? (isMe ? 'var(--neon-lime)' : 'var(--neon-pink)') : 'rgba(255,255,255,0.1)'
+                };"></span>`;
+            }
+            div.innerHTML = `<div style="font-size:0.65em;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:4px;">${isMe ? 'You' : p.name}</div>${pips}`;
+            bar.appendChild(div);
+        });
+    }
+
+    // ── Socket connect ────────────────────────────────────────────────────
+    socket.on('connect', () => {
+        myId = socket.id;
+        console.log('[CL] Socket connected:', myId);
+        socket.emit('joinRoom', { playerName, roomCode: roomCodeParam, gameType: 'CONNECT_LETTERS' });
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.warn('[CL] Socket disconnected. Reason:', reason);
+    });
+
+    socket.on('connect_error', (err) => {
+        console.error('[CL] Connection error:', err.message);
+    });
+
+    window.addEventListener('error', (e) => {
+        console.error('[CL] Runtime error:', e.message, 'at', e.filename, e.lineno);
+    });
+
+    // ── Room updates ──────────────────────────────────────────────────────
+    socket.on('roomUpdate', r => {
+        if (r.gameState === 'LOBBY') {
+            window.location.href = `lobby.html?room=${roomCodeParam}&game=CONNECT_LETTERS`;
+            return;
+        }
+        if (r.host === myId) isHost = true;
+        clBo = (r.gameData?.isSolo) ? null : (r.clBO || r.matchFormat || 3);
+        const isSolo = r.gameData?.isSolo;
+
+        // Score bar: hide in solo, show with correct BO in multiplayer
+        const scoreBar = document.getElementById('clScoreBar');
+        if (r.gameData?.roundWins && !isSolo) {
+            const winsNeeded = r.gameData.winsNeeded || Math.ceil((clBo || 3) / 2);
+            clUpdateScoreBar(r.gameData.roundWins, r.players, winsNeeded);
+            if (scoreBar) scoreBar.style.display = '';
+        } else if (isSolo) {
+            if (scoreBar) scoreBar.style.display = 'none';
+        }
+
+        const roundNum = r.gameData?.round;
+        document.getElementById('roundLabel').innerText =
+            isSolo ? 'Endless Mode' : (roundNum ? `Round ${roundNum}` : '');
+    });
+
+    // ── gameStarted ───────────────────────────────────────────────────────
+    // Payload contains per-player gameData from getInitialPayload().
+    let clGameData = null; // cache for reconnect / mode checks
+
+    socket.on('gameStarted', d => {
+        console.log('[CL] gameStarted received. myId:', myId, 'isHost:', isHost, 'payload keys:', Object.keys(d.payload || {}));
+        // d.payload is { [socketId]: { isSolo, systemLetters, bo, roundWins, ... } }
+        const payload = d.payload || {};
+        // payload may be keyed by socket ID; try myId first, fallback to first value
+        clGameData = payload[myId] || Object.values(payload)[0] || {};
+        console.log('[CL] clGameData:', JSON.stringify(clGameData));
+
+        // Defer by one tick so roomUpdate (which sets isHost) is guaranteed to have fired first
+        setTimeout(() => {
+            const isSolo         = clGameData.isSolo;
+            const needs2PSetup   = clGameData.systemLetters === false; // 2P only
+
+            if (needs2PSetup) {
+                // 2P: host emits clStartRound → server broadcasts clLetterInputPhase to both players
+                if (isHost) {
+                    socket.emit('clStartRound');
+                } else {
+                    // Non-host waits; server will push clLetterInputPhase
+                    clShow('clActiveView');
+                    document.getElementById('clWaitingMsg').innerText = 'Waiting for host to start the round…';
+                    document.getElementById('clWaitingMsg').style.display = 'block';
+                    document.getElementById('clWordInput').disabled = true;
+                }
+            } else {
+                // 1P solo or 3P+ Royal Rumble: show active view; host gets "Start Round 1" button
+                clShow('clActiveView');
+                document.getElementById('clWaitingMsg').style.display = 'none';
+                document.getElementById('clWordInput').disabled = true;
+                if (isHost) {
+                    const btn = document.getElementById('clNextRoundBtn');
+                    btn.innerText = 'Start Round 1 →';
+                    btn.style.display = 'block';
+                } else {
+                    document.getElementById('clWaitingMsg').innerText = 'Waiting for host to start the round…';
+                    document.getElementById('clWaitingMsg').style.display = 'block';
+                }
+            }
+        }, 0);
+    });
+
+    // requestInitialPayload (reconnect)
+    socket.on('requestInitialPayload', () => { socket.emit('requestInitialPayload'); });
+
+    // ── Letter input phase ────────────────────────────────────────────────
+    socket.on('clLetterInputPhase', () => {
+        console.log('[CL] clLetterInputPhase received — showing letter input view');
+        const input = document.getElementById('clLetterInput');
+        if (input) { input.value = ''; input.disabled = false; }
+        const btn = document.getElementById('clLetterSubmitBtn');
+        if (btn) btn.disabled = false;
+        document.getElementById('clLetterWaiting').style.display = 'none';
+        clShow('clLetterView');
+        setTimeout(() => document.getElementById('clLetterInput')?.focus(), 100);
+    });
+
+    function clSubmitLetter() {
+        const input = document.getElementById('clLetterInput');
+        const val = (input.value || '').trim().toUpperCase();
+        if (!val || !/^[A-Z]$/.test(val)) { showNotification('Enter a single letter A–Z.'); return; }
+        console.log('[CL] Letter submitted:', val);
+        document.getElementById('clLetterSubmitBtn').disabled = true;
+        input.disabled = true;
+        document.getElementById('clLetterWaiting').style.display = 'block';
+        socket.emit('clLetterSubmit', { letter: val });
+    }
+
+    socket.on('clLetterSubmitResponse', d => {
+        if (!d.success) {
+            document.getElementById('clLetterSubmitBtn').disabled = false;
+            document.getElementById('clLetterInput').disabled = false;
+            document.getElementById('clLetterWaiting').style.display = 'none';
+            showNotification(d.error || 'Invalid letter.');
+        }
+    });
+
+    // ── Round start + countdown ────────────────────────────────────────────
+    let clSoloTimerInterval = null;
+    let clIsSolo = false;
+
+    function clClearSoloTimer() {
+        if (clSoloTimerInterval) { clearInterval(clSoloTimerInterval); clSoloTimerInterval = null; }
+        const bar = document.getElementById('clSoloTimerBar');
+        if (bar) bar.style.display = 'none';
+    }
+
+    function clStartSoloTimer(seconds) {
+        clClearSoloTimer();
+        const bar = document.getElementById('clSoloTimerBar');
+        const fill = document.getElementById('clSoloTimerFill');
+        const label = document.getElementById('clSoloTimerLabel');
+        if (!bar || !fill || !label) return;
+        bar.style.display = 'flex';
+        let remaining = seconds;
+        fill.style.width = '100%';
+        fill.style.background = 'var(--neon-cyan)';
+        label.innerText = remaining + 's';
+        clSoloTimerInterval = setInterval(() => {
+            remaining--;
+            const pct = Math.max(0, (remaining / seconds) * 100);
+            fill.style.width = pct + '%';
+            fill.style.background = remaining <= 5 ? 'var(--neon-pink)' : remaining <= 9 ? '#f59e0b' : 'var(--neon-cyan)';
+            label.innerText = remaining + 's';
+            if (remaining <= 0) {
+                clearInterval(clSoloTimerInterval);
+                clSoloTimerInterval = null;
+                // Timer expired — server auto-generates new letters; no action needed from client
+            }
+        }, 1000);
+    }
+
+    socket.on('clRoundStart', d => {
+        clStartLetter = d.startLetter;
+        clEndLetter   = d.endLetter;
+        clBo          = d.bo || clBo;
+        clRoundWins   = d.roundWins || {};
+        clIsSolo      = !!d.soloTimer;
+        document.getElementById('roundLabel').innerText = d.soloTimer ? 'Endless Mode' : `Round ${d.round || ''}`;
+        // Hide score bar in solo (no BO)
+        const scoreBar = document.getElementById('clScoreBar');
+        if (scoreBar) scoreBar.style.display = clIsSolo ? 'none' : '';
+        if (d.autoStart) {
+            // Solo: server already picked new letters, skip countdown
+            clClearSoloTimer();
+            if (d.timerExpired) showNotification("Time's up! New letters…");
+            clShowActiveView();
+            if (d.soloTimer) clStartSoloTimer(d.soloTimer);
+        } else {
+            clStartCountdown(typeof d.countdown === 'number' ? d.countdown : 3, d.startLetter, d.endLetter, d.round, d.soloTimer);
+        }
+    });
+
+    function clStartCountdown(from, sLetter, eLetter, roundNum, soloTimer) {
+        console.log('[CL] Countdown started. from:', from, 'letters:', sLetter, '→', eLetter, 'round:', roundNum, 'soloTimer:', soloTimer);
+        const overlay  = document.getElementById('clCountdownOverlay');
+        const numEl    = document.getElementById('clCountdownNum');
+        const revealEl = document.getElementById('clLettersReveal');
+        overlay.classList.add('show');
+        revealEl.style.display = 'none';
+        let n = from;
+        numEl.innerText = n;
+        clearInterval(clCountdownInterval);
+        clCountdownInterval = setInterval(() => {
+            n--;
+            if (n > 0) {
+                numEl.innerText = n;
+            } else {
+                clearInterval(clCountdownInterval);
+                numEl.innerText = 'GO!';
+                revealEl.style.display = 'block';
+                revealEl.innerHTML =
+                    `<div style="color:var(--text-muted);font-size:0.7em;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;">Round ${roundNum} — Your Letters</div>` +
+                    `<div style="font-family:'JetBrains Mono',monospace;font-size:3em;font-weight:900;">` +
+                    `<span style="color:var(--neon-cyan);">${sLetter}</span>` +
+                    `<span style="color:var(--text-muted);font-size:0.4em;margin:0 12px;">→</span>` +
+                    `<span style="color:var(--neon-pink);">${eLetter}</span></div>`;
+                setTimeout(() => {
+                    overlay.classList.remove('show');
+                    revealEl.style.display = 'none';
+                    clShowActiveView();
+                    if (soloTimer) clStartSoloTimer(soloTimer);
+                }, 1600);
+            }
+        }, 1000);
+    }
+
+    function clShowActiveView() {
+        console.log('[CL] clShowActiveView — mounting active gameplay UI. letters:', clStartLetter, '→', clEndLetter);
+        clShow('clActiveView');
+        document.getElementById('clWaitingMsg').style.display = 'none';
+        document.getElementById('clNextRoundBtn').style.display = 'none';
+        // Apply letters
+        const sEl = document.getElementById('clStartLetter');
+        const eEl = document.getElementById('clEndLetter');
+        const patEl = document.getElementById('clPattern');
+        if (sEl) sEl.innerText = clStartLetter || '?';
+        if (eEl) eEl.innerText = clEndLetter   || '?';
+        if (patEl) patEl.innerHTML =
+            `<span class="s">${clStartLetter||'?'}</span> _ _ _ <span class="e">${clEndLetter||'?'}</span>`;
+        // Reset per-round UI
+        document.getElementById('clWordList').innerHTML = '';
+        document.getElementById('clChallengeBanner').classList.remove('active');
+        document.getElementById('clNextRoundBtn').style.display = 'none';
+        const wi = document.getElementById('clWordInput');
+        if (wi) { wi.value = ''; wi.disabled = false; setTimeout(() => wi.focus(), 120); }
+        console.log('[CL] Active screen fully rendered. Start:', clStartLetter, 'End:', clEndLetter);
+    }
+
+    // ── Word submission ────────────────────────────────────────────────────
+    function clSubmitWord() {
+        const input = document.getElementById('clWordInput');
+        const word  = (input.value || '').trim().toUpperCase();
+        if (!word) return;
+        input.value = '';
+        input.disabled = true;
+        document.getElementById('clValidatingWord').innerText = word;
+        document.getElementById('clValidatingOverlay').classList.add('show');
+        socket.emit('clWordSubmit', { word });
+    }
+
+    socket.on('clWordRejected', d => {
+        document.getElementById('clValidatingOverlay').classList.remove('show');
+        const input = document.getElementById('clWordInput');
+        if (input) { input.value = d.word || ''; input.disabled = false; input.focus(); }
+        showNotification(d.error || 'Invalid word.');
+    });
+
+    socket.on('clWordAccepted', d => {
+        // Only shown to the player who submitted (server sends only to them)
+        document.getElementById('clValidatingOverlay').classList.remove('show');
+        const list = document.getElementById('clWordList');
+        const entry = document.createElement('div');
+        entry.className = 'cl-word-entry';
+        entry.innerHTML = `<span class="cl-word-entry-word">${d.word}</span>
+            <span class="cl-word-entry-round" style="color:var(--neon-lime);">✓ Valid</span>`;
+        list.prepend(entry);
+    });
+
+    // ── Round end ──────────────────────────────────────────────────────────
+    socket.on('clRoundEnd', d => {
+        document.getElementById('clValidatingOverlay').classList.remove('show');
+        clearInterval(clChallengeTimer);
+        clClearSoloTimer();
+        document.getElementById('clChallengeBanner').classList.remove('active');
+        clRoundWins = d.roundWins || {};
+
+        const wi = document.getElementById('clWordInput');
+        if (wi) wi.disabled = true;
+
+        if (d.isSolo) {
+            // Solo: word accepted — server sends clRoundStart(autoStart) immediately after
+            showNotification('✓ ' + (d.word || '') + ' — Next word!');
+            return;
+        }
+
+        if (d.roundWinner === myId) showNotification('Round Won! ✓');
+        else if (d.roundWinner) showNotification('Round Lost.');
+        else showNotification('No winner this round.');
+
+        if (d.matchWon) return; // endGameResponse handles results
+
+        if (isHost) {
+            document.getElementById('clNextRoundBtn').style.display = 'block';
+        } else {
+            document.getElementById('clWaitingMsg').style.display = 'block';
+        }
+    });
+
+    // ── Challenge ──────────────────────────────────────────────────────────
+    socket.on('clChallenge', d => {
+        document.getElementById('clValidatingOverlay').classList.remove('show');
+        const banner  = document.getElementById('clChallengeBanner');
+        const timerEl = document.getElementById('clChallengeTimer');
+        banner.classList.add('active');
+        if (d.challengerSocket !== myId) {
+            const wi = document.getElementById('clWordInput');
+            if (wi) { wi.disabled = false; wi.focus(); }
+        }
+        let t = 8;
+        timerEl.innerText = t;
+        clearInterval(clChallengeTimer);
+        clChallengeTimer = setInterval(() => {
+            t--;
+            timerEl.innerText = t;
+            if (t <= 0) { clearInterval(clChallengeTimer); banner.classList.remove('active'); }
+        }, 1000);
+    });
+
+    socket.on('clChallengeExpired', () => {
+        clearInterval(clChallengeTimer);
+        document.getElementById('clChallengeBanner').classList.remove('active');
+        const wi = document.getElementById('clWordInput');
+        if (wi) wi.disabled = false;
+    });
+
+    // ── Host: next round ───────────────────────────────────────────────────
+    function clStartNextRound() {
+        const btn = document.getElementById('clNextRoundBtn');
+        btn.style.display = 'none';
+        btn.innerText = 'Next Round →'; // reset after "Start Round 1"
+        socket.emit('clStartRound');
+    }
+
+    // ── End game ───────────────────────────────────────────────────────────
+    socket.on('endGameResponse', d => {
+        clHideAll();
+        document.getElementById('endGameContainer').style.display = 'flex';
+
+        const msg = document.getElementById('endMsg');
+        if (d.winner?.id === myId) { msg.innerText = 'Victory!'; msg.style.color = 'var(--neon-lime)'; }
+        else if (!d.winner)         { msg.innerText = 'Draw';     msg.style.color = 'var(--neon-cyan)'; }
+        else                        { msg.innerText = 'Defeat';   msg.style.color = 'var(--neon-pink)'; }
+
+        const section = document.getElementById('leaderboardSection');
+        section.innerHTML = '';
+        const roundWins  = d.roundWins || d.scores || {};
+        const winsNeeded = typeof clBo === 'number' ? clBo : parseInt(String(clBo).replace('BO',''));
+        const boDiv = document.createElement('div');
+        boDiv.style.cssText = 'display:flex;justify-content:center;gap:32px;margin-bottom:20px;';
+        (d.players || []).forEach(p => {
+            const wins = roundWins[p.id] || 0;
+            const isMe = p.id === myId;
+            const col  = document.createElement('div');
+            col.style.cssText = 'text-align:center;';
+            let pips = '';
+            for (let i = 0; i < winsNeeded; i++) {
+                const f = i < wins;
+                pips += `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;margin:0 3px;background:${
+                    f ? (isMe ? 'var(--neon-lime)' : 'var(--neon-pink)') : 'rgba(255,255,255,0.08)'
+                };box-shadow:${f ? '0 0 8px rgba(163,255,18,0.4)' : 'none'};"></span>`;
+            }
+            col.innerHTML = `<div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">${isMe ? 'You' : p.name}</div>${pips}<div style="font-family:'JetBrains Mono',monospace;font-size:1.6em;font-weight:900;color:${isMe ? 'var(--neon-lime)' : 'var(--neon-pink)'};margin-top:8px;">${wins}</div>`;
+            boDiv.appendChild(col);
+        });
+        section.appendChild(boDiv);
+
+        if (isHost) document.getElementById('restartBtn').style.display = 'block';
+        else        document.getElementById('restartHint').style.display = 'flex';
+    });
+
+    function restartGame() {
+        socket.emit('resetGame');
+    }
+
+    socket.on('resetGameResponse', d => {
+        if (d.success) {
+            // Server will auto-start or go back to SETUP
+            window.location.href = `lobby.html?room=${roomCodeParam}&game=CONNECT_LETTERS`;
+        }
+    });
+
+    // ── Enter key ──────────────────────────────────────────────────────────
+    document.addEventListener('keyup', e => {
+        if (e.key !== 'Enter') return;
+        const active = document.activeElement;
+        if (!active) return;
+        if (active.id === 'clLetterInput') { clSubmitLetter(); return; }
+        if (active.id === 'clWordInput')   { clSubmitWord();   return; }
+    });
+
+    // ── Initial state: hide everything; gameStarted drives the initial UI ──
+    // clHideAll() so nothing is visible until server confirms game state.
+    clHideAll();
+    const wi0 = document.getElementById('clWordInput');
+    if (wi0) wi0.disabled = true;
+</script>
+</body>
+</html>

@@ -821,7 +821,414 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             z-index: 2010;
         }
-    </style>
+    
+        /* ══════════════════════════════════════════════════════════
+           CONNECT LETTERS
+        ══════════════════════════════════════════════════════════ */
+        /* Corner accents on end game card */
+        #endGameContainer::before, #endGameContainer::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            opacity: 0.3;
+        }
+
+        #endGameContainer::before {
+            top: 10px;
+            left: 10px;
+            border-top: 2px solid var(--neon-lime);
+            border-left: 2px solid var(--neon-lime);
+        }
+
+        #endGameContainer::after {
+            bottom: 10px;
+            right: 10px;
+            border-bottom: 2px solid var(--neon-lime);
+            border-right: 2px solid var(--neon-lime);
+        }
+
+        #endMsg {
+            font-weight: 900;
+            letter-spacing: 4px;
+            font-size: 1.4em;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            margin-bottom: 28px;
+        }
+
+        .stat-item { text-align: center; }
+
+        .stat-val {
+            font-size: 2.4em;
+            font-weight: 900;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-val#myScore, .stat-val#finalMyScore {
+            color: var(--neon-lime);
+            text-shadow: 0 0 20px rgba(163, 255, 18, 0.3);
+        }
+
+        .stat-val#opScore, .stat-val#finalOpScore {
+            color: var(--neon-pink);
+            text-shadow: 0 0 20px rgba(255, 45, 120, 0.3);
+        }
+
+        .stat-label {
+            font-size: 0.7em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-top: 4px;
+        }
+
+        #snackbar {
+            visibility: hidden;
+            background-color: rgba(20, 20, 32, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 45, 120, 0.3);
+            padding: 8px 18px;
+            position: absolute;
+            z-index: 1000;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), 0 0 15px rgba(255, 45, 120, 0.1);
+            opacity: 0;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            letter-spacing: 1px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        #snackbar.show {
+            visibility: visible;
+            opacity: 1;
+            animation: slideFadeUp 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+
+        .cube.dimmed {
+            background-color: rgba(255, 45, 120, 0.15);
+            border-color: rgba(255, 45, 120, 0.3);
+            border-style: dashed;
+            opacity: 1;
+        }
+
+        .host-bar {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            padding: 16px;
+            border-radius: 10px;
+            margin-top: 20px;
+            width: 100%;
+            text-align: center;
+            color: var(--neon-violet);
+            font-size: 0.8em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        @media (max-width: 450px) {
+            .row-score {
+                right: -45px;
+                width: 40px;
+            }
+            .grid-container {
+                /* Equal padding on both sides keeps the tile grid centred on screen.
+                   The right padding also reserves room for the score label. */
+                padding-left: 45px;
+                padding-right: 45px;
+            }
+        }
+
+        /* Compound Dialog Overlay */
+        #compoundDialogOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #compoundDialogOverlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .dialog-card {
+            background: var(--surface);
+            border: 1px solid var(--neon-pink);
+            box-shadow: 0 0 30px rgba(255, 45, 120, 0.2);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+
+        #compoundDialogOverlay.show .dialog-card {
+            transform: scale(1);
+        }
+
+        .dialog-card h3 {
+            color: var(--neon-pink);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            font-size: 1.2em;
+        }
+
+        .dialog-card p {
+            color: var(--text-primary);
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .dialog-words {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--neon-lime);
+            font-weight: 700;
+            font-size: 1.1em;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 24px;
+            letter-spacing: 1px;
+        }
+
+        .dialog-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .tooltip-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip-wrapper:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: rgba(20, 20, 32, 0.95);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            white-space: nowrap;
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 2010;
+        }
+    
+        /* ══════════════════════════════════════════════════════════
+           CONNECT LETTERS
+        ══════════════════════════════════════════════════════════ */
+        #clView {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            gap: 20px;
+        }
+
+        /* Letter input phase */
+        .cl-letter-prompt {
+            text-align: center;
+            width: 100%;
+        }
+        .cl-letter-prompt h2 {
+            font-size: 1.1em;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+        .cl-letter-input-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .cl-letter-box {
+            width: 64px;
+            height: 64px;
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2em;
+            font-weight: 900;
+            text-align: center;
+            text-transform: uppercase;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            caret-color: var(--neon-cyan);
+        }
+        .cl-letter-box:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 12px rgba(0,240,255,0.25);
+        }
+
+        /* Assignment display */
+        .cl-assignment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 18px 28px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            width: 100%;
+        }
+        .cl-letter-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .cl-letter-badge-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.4em;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .cl-letter-badge-val.start { color: var(--neon-cyan); }
+        .cl-letter-badge-val.end   { color: var(--neon-pink); }
+        .cl-letter-badge-lbl {
+            font-size: 0.65em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+        }
+        .cl-pattern {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.3em;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 4px;
+        }
+        .cl-pattern span.s { color: var(--neon-cyan); }
+        .cl-pattern span.e { color: var(--neon-pink); }
+
+        /* Word input */
+        .cl-word-form {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        .cl-word-input {
+            flex: 1;
+            padding: 14px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1.5px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 1.05em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            outline: none;
+            font-family: 'JetBrains Mono', monospace;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .cl-word-input:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 12px rgba(0,240,255,0.15);
+        }
+        .cl-word-input.invalid {
+            border-color: var(--neon-pink);
+            animation: shake 0.35s ease;
+        }
+
+        /* Word list */
+        .cl-word-list {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .cl-word-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 14px;
+            border-radius: 7px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            font-size: 0.88em;
+            animation: typing 0.15s ease-out;
+        }
+        .cl-word-entry-word {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--neon-lime);
+        }
+        .cl-word-entry-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+            color: var(--text-muted);
+        }
+        .cl-word-entry-pts { color: var(--neon-lime); font-weight: 700; }
+
+        /* Opponent challenge banner */
+        .cl-challenge-banner {
+            display: none;
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 10px;
+            background: rgba(255,45,120,0.1);
+            border: 1px solid rgba(255,45,120,0.3);
+            text-align: center;
+        }
+        .cl-challenge-banner.active { display: block; }
+        .cl-challenge-banner h4 {
+            color: var(--neon-pink);
+            margin: 0 0 6px;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .cl-challenge-timer {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2em;
+            font-weight: 900;
+            color: var(--neon-pink);
+        }
+
+        </style>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
@@ -834,7 +1241,7 @@
         <div id="snackbar"></div>
 
         <!-- SETUP PHASE -->
-        <div id="setupView" class="grid-container">
+        <div id="setupView" class="grid-container" style="display:none;">
             <div id="setupRows"></div>
             <div id="setupStatusBar" class="setup-status-bar" style="display:none;"></div>
             <div class="actions">
@@ -950,7 +1357,8 @@
         const FIXED_COLS = 9;
         let activeGuessingIdx = -1;
         let protectedHints = [];
-        let activeWordLength = 0; // actual letter-count of the word currently being guessed
+        let activeWordLength = 0;
+        // Connect Letters — declared early so routeOnLoad() can use them
 
         let activeNotification = null;
         const PRIORITY = { "No Plurals": 1, "Check Spelling": 2, "Incorrect Word": 3, "Last Letter": 4 };
@@ -1487,7 +1895,7 @@
             if (r.gameState === "ACTIVE") {
                currentPhase = 'ACTIVE';
                setupView.style.display = 'none';
-               activeView.style.display = 'flex';
+                   activeView.style.display = 'flex';
                // Hide end game screen and clear leaderboard (covers Play Again from GAME_END)
                document.getElementById('endGameContainer').style.display = 'none';
                document.getElementById('leaderboardSection').innerHTML = '';
@@ -1496,16 +1904,16 @@
                const infoBtn = document.getElementById('tiebreakerInfoBtn');
                if (infoBtn) { infoBtn.style.display = 'none'; infoBtn.classList.remove('pulse'); }
                // gameBottomStats visibility is controlled below based on player count (2-4p only)
-               phaseTitle.innerText = "Word Chain";
+               phaseTitle.innerText = 'Word Chain';
                // Request initial payload if grid not yet set up (single-player auto-start / reconnect)
                if (activeGuessingIdx === -1) socket.emit('requestInitialPayload');
             } else if (r.gameState === "SETUP") {
                const wasAlreadySetup = (currentPhase === 'SETUP');
                currentPhase = 'SETUP';
                setupView.style.display = 'flex';
-               activeView.style.display = 'none';
-               document.getElementById('endGameContainer').style.display = 'none';
-               phaseTitle.innerText = "Setup Phase";
+                   activeView.style.display = 'none';
+                   document.getElementById('endGameContainer').style.display = 'none';
+                   phaseTitle.innerText = "Setup Phase";
                // Only reset grids on first entry (or rematch), not on every status roomUpdate
                if (!wasAlreadySetup) {
                    initGrids();
@@ -1912,8 +2320,10 @@
         }
 
         socket.on('endGameResponse', d => {
-            showEndGame(d.winner, d.scores || {}, d.timeTaken || {}, d.players || []);
+            else { showEndGame(d.winner, d.scores || {}, d.timeTaken || {}, d.players || []); }
         });
+
+
 
         initGrids();
 

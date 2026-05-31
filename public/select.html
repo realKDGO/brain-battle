@@ -476,12 +476,20 @@
             <p class="card-desc">Find the secret number before your opponent does.</p>
         </div>
 
-        <!-- Connect Letters (unavailable) -->
-        <div class="card unavailable">
-            <div class="card-badge">Coming Soon</div>
+        <!-- Connect Letters -->
+        <div class="card" id="card_CONNECT_LETTERS" onclick="selectGame('CONNECT_LETTERS', event)">
             <div class="icon">✏️</div>
             <h3>Connect Letters</h3>
-            <p class="card-desc">Form words by connecting adjacent letter tiles.</p>
+            <p class="card-desc">Form valid words matching assigned start and end letters. Score points for speed, length, and unique words.</p>
+            <div class="card-actions" id="actions_CONNECT_LETTERS">
+                <div class="card-actions-inner">
+                    <div class="action-top" id="top_CONNECT_LETTERS">
+                        <button class="host-btn" onclick="onHostClick('CONNECT_LETTERS', event)">⚡ Host Game</button>
+                    </div>
+                    <div class="action-divider"></div>
+                    <button class="join-btn" id="joinBtn_CONNECT_LETTERS" onclick="onJoinClick('CONNECT_LETTERS', event)">🎮 Join Game</button>
+                </div>
+            </div>
         </div>
 
         <!-- Wordle (unavailable) -->
