@@ -13,17 +13,20 @@
             --text-primary:#F0F0F5; --text-muted:#6B6B80; --error:#FF4757;
         }
         *{margin:0;padding:0;box-sizing:border-box;}
+        html,body{width:100%;max-width:100%;overflow-x:hidden;}
         body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text-primary);
-            display:flex;flex-direction:column;align-items:center;justify-content:center;
-            min-height:100vh;padding:20px;overflow-x:hidden;position:relative;}
+            display:flex;flex-direction:column;align-items:center;
+            min-height:100vh;min-height:100dvh;
+            padding:env(safe-area-inset-top,16px) max(16px,env(safe-area-inset-right)) env(safe-area-inset-bottom,16px) max(16px,env(safe-area-inset-left));
+            overflow-x:hidden;position:relative;}
         body::before{content:'';position:fixed;inset:0;background:
             radial-gradient(ellipse 500px 350px at 50% 20%,rgba(139,92,246,0.05) 0%,transparent 70%),
             radial-gradient(ellipse 400px 300px at 20% 80%,rgba(255,45,120,0.03) 0%,transparent 70%);
             pointer-events:none;z-index:0;}
         body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
 
-        .game-container{width:100%;max-width:560px;display:flex;flex-direction:column;
-            align-items:center;margin:0 auto;position:relative;z-index:1;gap:0;}
+        .game-container{width:100%;max-width:min(560px,100%);display:flex;flex-direction:column;
+            align-items:center;margin:0 auto;position:relative;z-index:1;gap:0;padding:0;}
 
         /* ── Phase header ─────────────────────────────── */
         .phase-header{width:100%;display:flex;align-items:center;justify-content:space-between;
@@ -59,7 +62,7 @@
             opacity:0;transition:opacity 0.3s ease;}
         .dialog-overlay.show{display:flex;opacity:1;}
         .dialog-card{background:rgba(18,18,28,0.98);border:1px solid rgba(255,255,255,0.1);
-            border-radius:16px;padding:28px 24px;width:100%;max-width:360px;
+            border-radius:16px;padding:clamp(20px,5vw,28px) clamp(16px,5vw,24px);width:100%;max-width:min(360px,calc(100vw - 32px));
             box-shadow:0 20px 60px rgba(0,0,0,0.5);}
         .dialog-card h3{font-size:1em;font-weight:900;letter-spacing:3px;text-transform:uppercase;
             margin-bottom:14px;}
@@ -84,11 +87,11 @@
         .cl-letter-box:focus{border-color:var(--neon-cyan);box-shadow:0 0 12px rgba(0,240,255,0.25);}
 
         /* ── Active play phase ────────────────────────── */
-        .cl-assignment{display:flex;align-items:center;justify-content:center;gap:20px;
-            padding:18px 28px;border-radius:12px;background:rgba(255,255,255,0.04);
+        .cl-assignment{display:flex;align-items:center;justify-content:center;gap:clamp(10px,4vw,20px);
+            padding:clamp(12px,4vw,18px) clamp(12px,5vw,28px);border-radius:12px;background:rgba(255,255,255,0.04);
             border:1px solid rgba(255,255,255,0.08);width:100%;}
         .cl-letter-badge{display:flex;flex-direction:column;align-items:center;gap:4px;}
-        .cl-letter-badge-val{font-family:'JetBrains Mono',monospace;font-size:2.4em;font-weight:900;line-height:1;}
+        .cl-letter-badge-val{font-family:'JetBrains Mono',monospace;font-size:clamp(1.8em,8vw,2.4em);font-weight:900;line-height:1;}
         .cl-letter-badge-val.start{color:var(--neon-cyan);}
         .cl-letter-badge-val.end{color:var(--neon-pink);}
         .cl-letter-badge-lbl{font-size:0.65em;font-weight:700;text-transform:uppercase;
@@ -98,11 +101,11 @@
         .cl-pattern span.s{color:var(--neon-cyan);}
         .cl-pattern span.e{color:var(--neon-pink);}
         .cl-word-form{display:flex;gap:10px;width:100%;}
-        .cl-word-input{flex:1;padding:14px 16px;background:rgba(255,255,255,0.05);
+        .cl-word-input{flex:1;padding:clamp(10px,3vw,14px) clamp(10px,4vw,16px);background:rgba(255,255,255,0.05);
             border:1.5px solid rgba(255,255,255,0.12);border-radius:8px;color:var(--text-primary);
-            font-size:1.05em;font-weight:600;text-transform:uppercase;letter-spacing:2px;
+            font-size:clamp(0.9em,4vw,1.05em);font-weight:600;text-transform:uppercase;letter-spacing:2px;
             outline:none;font-family:'JetBrains Mono',monospace;
-            transition:border-color 0.2s,box-shadow 0.2s;}
+            transition:border-color 0.2s,box-shadow 0.2s;min-width:0;}
         .cl-word-input:focus{border-color:var(--neon-cyan);box-shadow:0 0 12px rgba(0,240,255,0.15);}
         .cl-word-input:disabled{opacity:0.4;cursor:not-allowed;}
         .cl-word-list{width:100%;display:flex;flex-direction:column;gap:6px;
@@ -148,6 +151,33 @@
             border-top-color:var(--neon-cyan);border-radius:50%;
             animation:spin 0.8s linear infinite;margin:14px auto 0;}
 
+        /* ── Word history entries ─────────────────────────────────── */
+        .cl-word-entry.accepted  .cl-word-entry-word { color: var(--neon-lime); }
+        .cl-word-entry.wrong_letters .cl-word-entry-word { color: #f59e0b; }
+        .cl-word-entry.invalid_dict  .cl-word-entry-word { color: var(--error); }
+        .cl-word-info-btn {
+            background: transparent; border: 1px solid rgba(255,255,255,0.15);
+            color: var(--text-muted); border-radius: 5px; padding: 3px 8px;
+            font-size: 0.72em; font-weight: 700; letter-spacing: 1px;
+            cursor: pointer; text-transform: uppercase; transition: all 0.15s;
+        }
+        .cl-word-info-btn:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); }
+        /* ── Collapsible leaderboard ────────────────────────────────── */
+        .cl-collapsible { width: 100%; border-radius: 10px; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; }
+        .cl-collapsible-header { display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 18px; background: rgba(255,255,255,0.04); cursor: pointer;
+            user-select: none; }
+        .cl-collapsible-header:hover { background: rgba(255,255,255,0.07); }
+        .cl-collapsible-header .cl-coll-name { font-weight: 700; font-size: 0.9em; }
+        .cl-collapsible-header .cl-coll-score { font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1em; font-weight: 900; }
+        .cl-collapsible-header .cl-coll-arrow { color: var(--text-muted); font-size: 0.8em;
+            transition: transform 0.2s; margin-left: 8px; }
+        .cl-collapsible-header.open .cl-coll-arrow { transform: rotate(180deg); }
+        .cl-collapsible-body { display: none; padding: 8px 12px 12px;
+            background: rgba(0,0,0,0.2); }
+        .cl-collapsible-body.open { display: block; }
         /* ── End game ─────────────────────────────────── */
         #endGameContainer{width:100%;display:flex;flex-direction:column;align-items:center;
             gap:0;padding-top:8px;}
@@ -160,6 +190,13 @@
         .leaderboard-name{font-weight:700;font-size:0.9em;}
         .leaderboard-wins{font-family:'JetBrains Mono',monospace;font-size:1.4em;
             font-weight:900;color:var(--neon-lime);}
+        @media(max-width:400px){
+            .cl-letter-box{width:52px;height:52px;font-size:1.6em;}
+            .cl-word-form{flex-direction:column;}
+            .cl-word-form button{width:100%;}
+            button{padding:10px 14px;font-size:0.8em;}
+            .phase-header h1{font-size:0.65em;}
+        }
     </style>
 </head>
 <body>
@@ -204,7 +241,7 @@
                 <span class="cl-letter-badge-lbl">Start</span>
             </div>
             <div style="flex:1;text-align:center;">
-                <div id="clPattern" class="cl-pattern"><span class="s">?</span> _ _ _ <span class="e">?</span></div>
+                <div id="clPattern" class="cl-pattern" style="display:none;"></div>
                 <div style="font-size:0.7em;color:var(--text-muted);margin-top:4px;text-transform:uppercase;letter-spacing:1px;">Pattern</div>
             </div>
             <div class="cl-letter-badge">
@@ -226,18 +263,23 @@
             <div id="clChallengeTimer" class="cl-challenge-timer">8</div>
         </div>
 
-        <!-- Word input -->
+        <!-- Word input (hidden until countdown ends) -->
+        <div id="clWordFormWrap" style="display:none;width:100%;">
         <div class="cl-word-form">
             <input id="clWordInput" class="cl-word-input" placeholder="TYPE YOUR WORD…"
                 autocomplete="off" spellcheck="false" maxlength="30" />
             <button class="primary-btn" onclick="clSubmitWord()" style="white-space:nowrap;padding:0 20px;">Submit</button>
         </div>
+        </div><!-- /clWordFormWrap -->
 
         <!-- Accepted words this round -->
-        <div id="clWordList" class="cl-word-list"></div>
+        <div id="clWordCounter" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);text-align:center;width:100%;font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);">Words Submitted: <span id="clWordCount" style="color:var(--neon-lime);font-family:'JetBrains Mono',monospace;">0</span></div>
+        <div id="clWordList" class="cl-word-list" style="display:none;"></div>
 
         <!-- Host: start next round after round ends -->
         <button id="clNextRoundBtn" class="success-btn" style="display:none;width:100%;" onclick="clStartNextRound()">Next Round →</button>
+        <!-- Solo quit button -->
+        <button id="clSoloQuitBtn" class="btn-ghost" style="display:none;width:100%;margin-top:4px;" onclick="clShowQuit()">Quit Session</button>
     </div>
 
     <!-- ── END GAME ───────────────────────────────────────────────────── -->
@@ -257,7 +299,41 @@
     </div>
 </div>
 
+<!-- ── Word Info Dialog ─────────────────────────────────────────────── -->
+<div id="clWordInfoOverlay" class="dialog-overlay" onclick="clCloseWordInfo(event)">
+    <div class="dialog-card" style="max-width:400px;">
+        <h3 id="clWordInfoTitle" style="color:var(--neon-cyan);margin-bottom:6px;"></h3>
+        <div id="clWordInfoBadge" style="margin-bottom:14px;"></div>
+        <p id="clWordInfoBody" style="margin-bottom:0;"></p>
+        <div class="dialog-actions" style="margin-top:18px;">
+            <button class="secondary-btn" onclick="clCloseWordInfo()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Solo Quit Confirm Dialog ─────────────────────────────────────── -->
+<div id="clQuitOverlay" class="dialog-overlay" onclick="clCloseQuit(event)">
+    <div class="dialog-card">
+        <h3 style="color:var(--neon-pink);">End Session?</h3>
+        <p>Your session will end and your results will be shown.</p>
+        <div class="dialog-actions">
+            <button class="secondary-btn" onclick="clCloseQuit()">Keep Playing</button>
+            <button class="primary-btn" onclick="clConfirmQuit()">Quit</button>
+        </div>
+    </div>
+</div>
+</div>
+
 <!-- ── Countdown overlay ─────────────────────────────────────────────── -->
+
+<!-- —— Intermission overlay ———————————————————— -->
+<div id="clIntermissionOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,10,15,0.9);backdrop-filter:blur(12px);z-index:2008;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;">
+    <div style="font-size:0.72em;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:var(--text-muted);">Next Round In</div>
+    <div id="clBreakNum" style="font-family:'JetBrains Mono',monospace;font-size:6em;font-weight:900;color:var(--neon-violet);text-shadow:0 0 30px rgba(139,92,246,0.5);"></div>
+    <div id="clBreakMsg" style="font-size:0.8em;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;"></div>
+    <button id="clSkipBtn" style="display:none;margin-top:4px;padding:10px 32px;border-radius:8px;border:2px solid var(--neon-violet);background:transparent;color:var(--neon-violet);font-family:Outfit,sans-serif;font-size:0.85em;font-weight:700;text-transform:uppercase;letter-spacing:2px;cursor:pointer;" onclick="clSkipIntermission()">Skip</button>
+</div>
+
 <div id="clCountdownOverlay">
     <div class="cl-countdown-lbl">Game Starts In</div>
     <div id="clCountdownNum" class="cl-countdown-num">3</div>
@@ -293,7 +369,104 @@
     let clCountdownInterval = null;
     let activeNotification  = null;
 
-    // ── Notification ────────────────────────────────────────────────────
+    // Word history: accumulated locally for in-round word list display
+    // Full history is authoritative from server (wordHistory keyed by playerId)
+    let clWordHistory = {}; // { [playerId]: [{ word, status, definition, rejectionReason, round, startLetter, endLetter }] }
+    let clMyHistory   = []; // shortcut for my own entries
+
+    // ── Word Info Dialog ────────────────────────────────────────────────
+    function clShowWordInfo(entry) {
+        const overlay = document.getElementById('clWordInfoOverlay');
+        const title   = document.getElementById('clWordInfoTitle');
+        const badge   = document.getElementById('clWordInfoBadge');
+        const body    = document.getElementById('clWordInfoBody');
+
+        title.innerText = entry.word;
+
+        // Badge
+        if (entry.status === 'accepted') {
+            badge.innerHTML = '<span style="color:var(--neon-lime);font-size:0.78em;font-weight:700;text-transform:uppercase;letter-spacing:1px;">✓ Accepted</span>';
+        } else if (entry.status === 'wrong_letters') {
+            badge.innerHTML = '<span style="color:#f59e0b;font-size:0.78em;font-weight:700;text-transform:uppercase;letter-spacing:1px;">⚠ Valid Word — Wrong Letters</span>';
+        } else {
+            badge.innerHTML = '<span style="color:var(--error);font-size:0.78em;font-weight:700;text-transform:uppercase;letter-spacing:1px;">✗ Not a Valid English Word</span>';
+        }
+
+        // Body
+        if (entry.status === 'invalid_dict') {
+            body.innerText = '"' + entry.word + '" is not recognised as a valid English word by the dictionary validation system.';
+        } else if (entry.status === 'wrong_letters') {
+            let txt = '';
+            if (entry.definition) txt += entry.definition + '\n\n';
+            txt += 'Rejected because: ' + (entry.rejectionReason || 'did not match the required first and/or last letter') + '.';
+            if (entry.startLetter && entry.endLetter) {
+                txt += ' The required pattern was ' + entry.startLetter + '…' + entry.endLetter + '.';
+            }
+            body.innerText = txt;
+        } else {
+            // accepted
+            body.innerText = entry.definition || 'No definition available.';
+        }
+
+        overlay.classList.add('show');
+    }
+
+    function clCloseWordInfo(e) {
+        if (e && e.target !== document.getElementById('clWordInfoOverlay')) return;
+        document.getElementById('clWordInfoOverlay').classList.remove('show');
+    }
+
+    // ── Solo Quit ───────────────────────────────────────────────────────
+    function clShowQuit() { document.getElementById('clQuitOverlay').classList.add('show'); }
+    function clCloseQuit(e) {
+        if (e && e.target !== document.getElementById('clQuitOverlay')) return;
+        document.getElementById('clQuitOverlay').classList.remove('show');
+    }
+    function clConfirmQuit() {
+        document.getElementById('clQuitOverlay').classList.remove('show');
+        clClearSoloTimer();
+        socket.emit('clSoloQuit');
+    }
+
+    // ── Build word history entry element ────────────────────────────────
+    // Uses DOM API (not innerHTML) to avoid quote-escaping syntax errors.
+    function clMakeWordEntry(entry) {
+        const div = document.createElement('div');
+        div.className = 'cl-word-entry ' + (entry.status || '');
+
+        const wordSpan = document.createElement('span');
+        wordSpan.className = 'cl-word-entry-word';
+        wordSpan.innerText = entry.word;
+
+        const statusSpan = document.createElement('span');
+        statusSpan.style.fontSize = '0.75em';
+        if (entry.status === 'accepted') {
+            statusSpan.style.color = 'var(--neon-lime)';
+            statusSpan.innerText = '✓ Accepted';
+        } else if (entry.status === 'wrong_letters') {
+            statusSpan.style.color = '#f59e0b';
+            statusSpan.innerText = '⚠ Wrong Letters';
+        } else {
+            statusSpan.style.color = 'var(--error)';
+            statusSpan.innerText = '✗ Invalid';
+        }
+
+        const infoBtn = document.createElement('button');
+        infoBtn.className = 'cl-word-info-btn';
+        infoBtn.innerText = 'Info';
+        infoBtn.addEventListener('click', function() { clShowWordInfo(entry); });
+
+        const right = document.createElement('span');
+        right.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        right.appendChild(statusSpan);
+        right.appendChild(infoBtn);
+
+        div.appendChild(wordSpan);
+        div.appendChild(right);
+        return div;
+    }
+
+        // ── Notification ────────────────────────────────────────────────────
     function showNotification(msg) {
         const sb = document.getElementById('snackbar');
         sb.innerText = msg;
@@ -399,16 +572,19 @@
             const needs2PSetup   = clGameData.systemLetters === false; // 2P only
 
             if (needs2PSetup) {
-                // 2P: host emits clStartRound → server broadcasts clLetterInputPhase to both players
-                if (isHost) {
-                    socket.emit('clStartRound');
-                } else {
-                    // Non-host waits; server will push clLetterInputPhase
-                    clShow('clActiveView');
-                    document.getElementById('clWaitingMsg').innerText = 'Waiting for host to start the round…';
-                    document.getElementById('clWaitingMsg').style.display = 'block';
-                    document.getElementById('clWordInput').disabled = true;
-                }
+                // 2P: both players go straight to letter input view.
+                // Host also emits clStartRound to tell server a round is beginning.
+                if (isHost) socket.emit('clStartRound');
+                // Both host AND non-host show the letter input screen immediately.
+                const li = document.getElementById('clLetterInput');
+                if (li) { li.value = ''; li.disabled = false; }
+                const lb = document.getElementById('clLetterSubmitBtn');
+                if (lb) lb.disabled = false;
+                document.getElementById('clLetterWaiting').style.display = 'none';
+                clShow('clLetterView');
+                setTimeout(() => document.getElementById('clLetterInput')?.focus(), 100);
+                // clLetterInputPhase from server is no longer needed to trigger letter view —
+                // but it still re-fires for subsequent rounds, which is fine.
             } else {
                 // 1P solo or 3P+ Royal Rumble: show active view; host gets "Start Round 1" button
                 clShow('clActiveView');
@@ -497,6 +673,10 @@
     }
 
     socket.on('clRoundStart', d => {
+        // Clear intermission overlay when new round starts
+        clearInterval(clBreakInterval);
+        const _ov = document.getElementById('clIntermissionOverlay');
+        if (_ov) _ov.style.display = 'none';
         clStartLetter = d.startLetter;
         clEndLetter   = d.endLetter;
         clBo          = d.bo || clBo;
@@ -564,12 +744,23 @@
         if (eEl) eEl.innerText = clEndLetter   || '?';
         if (patEl) patEl.innerHTML =
             `<span class="s">${clStartLetter||'?'}</span> _ _ _ <span class="e">${clEndLetter||'?'}</span>`;
-        // Reset per-round UI
+        // Reset per-round UI (visual list only; full history stays in clMyHistory/clWordHistory)
         document.getElementById('clWordList').innerHTML = '';
+        document.getElementById('clWordList').style.display = 'none';
+        const counter = document.getElementById('clWordCounter');
+        if (counter) counter.style.display = clIsSolo ? 'block' : 'none';
+        const countEl = document.getElementById('clWordCount');
+        if (countEl) countEl.innerText = '0';
         document.getElementById('clChallengeBanner').classList.remove('active');
+        clSubmittedCount = 0;
         document.getElementById('clNextRoundBtn').style.display = 'none';
+        const wrap = document.getElementById('clWordFormWrap');
+        if (wrap) wrap.style.display = 'block';
         const wi = document.getElementById('clWordInput');
         if (wi) { wi.value = ''; wi.disabled = false; setTimeout(() => wi.focus(), 120); }
+        // Solo quit button
+        const qBtn = document.getElementById('clSoloQuitBtn');
+        if (qBtn) qBtn.style.display = clIsSolo ? 'block' : 'none';
         console.log('[CL] Active screen fully rendered. Start:', clStartLetter, 'End:', clEndLetter);
     }
 
@@ -588,19 +779,23 @@
     socket.on('clWordRejected', d => {
         document.getElementById('clValidatingOverlay').classList.remove('show');
         const input = document.getElementById('clWordInput');
-        if (input) { input.value = d.word || ''; input.disabled = false; input.focus(); }
+        if (input) { input.value = ''; input.disabled = false; input.focus(); }
         showNotification(d.error || 'Invalid word.');
+        // Add to local word list
+        if (d.historyEntry) {
+            clMyHistory.push(d.historyEntry);
+            const list = document.getElementById('clWordList');
+            if (list) list.prepend(clMakeWordEntry(d.historyEntry));
+        }
     });
 
+    let clSubmittedCount = 0;
     socket.on('clWordAccepted', d => {
-        // Only shown to the player who submitted (server sends only to them)
+        clSubmittedCount++;
+        const countEl = document.getElementById('clWordCount');
+        if (countEl) countEl.innerText = clSubmittedCount;
+        // Sent to the submitting player on accepted word (non-solo path uses clRoundEnd)
         document.getElementById('clValidatingOverlay').classList.remove('show');
-        const list = document.getElementById('clWordList');
-        const entry = document.createElement('div');
-        entry.className = 'cl-word-entry';
-        entry.innerHTML = `<span class="cl-word-entry-word">${d.word}</span>
-            <span class="cl-word-entry-round" style="color:var(--neon-lime);">✓ Valid</span>`;
-        list.prepend(entry);
     });
 
     // ── Round end ──────────────────────────────────────────────────────────
@@ -614,8 +809,29 @@
         const wi = document.getElementById('clWordInput');
         if (wi) wi.disabled = true;
 
+        // If this round had a winner, add their accepted word to the visible list
+        if (d.word && d.roundWinner) {
+            const winnerEntry = {
+                word: d.word,
+                status: 'accepted',
+                definition: d.definition || null,
+                rejectionReason: null,
+                round: null,
+                startLetter: clStartLetter,
+                endLetter: clEndLetter,
+            };
+            const list = document.getElementById('clWordList');
+            if (list) list.prepend(clMakeWordEntry(winnerEntry));
+            // Sync my history if I was the winner
+            if (d.roundWinner === myId) {
+                clMyHistory.push(winnerEntry);
+            }
+        }
+
+        // Sync full word history from server if provided
+        if (d.wordHistory) clWordHistory = d.wordHistory;
+
         if (d.isSolo) {
-            // Solo: word accepted — server sends clRoundStart(autoStart) immediately after
             showNotification('✓ ' + (d.word || '') + ' — Next word!');
             return;
         }
@@ -661,49 +877,155 @@
     });
 
     // ── Host: next round ───────────────────────────────────────────────────
+    // ── Intermission (auto 15s break between rounds) ─────────────────────
+    let clBreakInterval = null;
+    socket.on('clIntermission', d => {
+        let t = d.seconds || 15;
+        const overlay = document.getElementById('clIntermissionOverlay');
+        const numEl   = document.getElementById('clBreakNum');
+        const skipBtn = document.getElementById('clSkipBtn');
+        if (overlay) overlay.style.display = 'flex';
+        if (numEl) numEl.innerText = t;
+        if (skipBtn) skipBtn.style.display = isHost ? 'block' : 'none';
+        clearInterval(clBreakInterval);
+        clBreakInterval = setInterval(() => {
+            t--;
+            if (numEl) numEl.innerText = t;
+            if (t <= 0) { clearInterval(clBreakInterval); if (overlay) overlay.style.display = 'none'; }
+        }, 1000);
+    });
+
+
+    function clSkipIntermission() {
+        socket.emit('clSkipIntermission');
+        clearInterval(clBreakInterval);
+        const ov = document.getElementById('clIntermissionOverlay');
+        if (ov) ov.style.display = 'none';
+    }
+
+    socket.on('clInvalidPair', d => {
+        showNotification(d.message || 'No valid words possible. Round restarting.');
+    });
+
     function clStartNextRound() {
         const btn = document.getElementById('clNextRoundBtn');
-        btn.style.display = 'none';
-        btn.innerText = 'Next Round →'; // reset after "Start Round 1"
+        if (btn) { btn.style.display = 'none'; }
         socket.emit('clStartRound');
     }
 
     // ── End game ───────────────────────────────────────────────────────────
     socket.on('endGameResponse', d => {
+        clClearSoloTimer();
+        clearInterval(clBreakInterval);
+        const _ov = document.getElementById('clIntermissionOverlay');
+        if (_ov) _ov.style.display = 'none';
         clHideAll();
         document.getElementById('endGameContainer').style.display = 'flex';
 
+        const wordHistory = d.wordHistory || clWordHistory || {};
+
         const msg = document.getElementById('endMsg');
-        if (d.winner?.id === myId) { msg.innerText = 'Victory!'; msg.style.color = 'var(--neon-lime)'; }
-        else if (!d.winner)         { msg.innerText = 'Draw';     msg.style.color = 'var(--neon-cyan)'; }
-        else                        { msg.innerText = 'Defeat';   msg.style.color = 'var(--neon-pink)'; }
+        if (d.isSolo && d.soloQuit) {
+            const accepted = d.soloWordCount || 0;
+            msg.innerText = accepted + ' Word' + (accepted !== 1 ? 's' : '') + ' Found';
+            msg.style.color = 'var(--neon-cyan)';
+        } else if (d.winner?.id === myId) {
+            msg.innerText = 'Victory!'; msg.style.color = 'var(--neon-lime)';
+        } else if (!d.winner) {
+            msg.innerText = 'Draw'; msg.style.color = 'var(--neon-cyan)';
+        } else {
+            msg.innerText = 'Defeat'; msg.style.color = 'var(--neon-pink)';
+        }
 
         const section = document.getElementById('leaderboardSection');
         section.innerHTML = '';
-        const roundWins  = d.roundWins || d.scores || {};
-        const winsNeeded = typeof clBo === 'number' ? clBo : parseInt(String(clBo).replace('BO',''));
-        const boDiv = document.createElement('div');
-        boDiv.style.cssText = 'display:flex;justify-content:center;gap:32px;margin-bottom:20px;';
-        (d.players || []).forEach(p => {
-            const wins = roundWins[p.id] || 0;
-            const isMe = p.id === myId;
-            const col  = document.createElement('div');
-            col.style.cssText = 'text-align:center;';
-            let pips = '';
-            for (let i = 0; i < winsNeeded; i++) {
-                const f = i < wins;
-                pips += `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;margin:0 3px;background:${
-                    f ? (isMe ? 'var(--neon-lime)' : 'var(--neon-pink)') : 'rgba(255,255,255,0.08)'
-                };box-shadow:${f ? '0 0 8px rgba(163,255,18,0.4)' : 'none'};"></span>`;
-            }
-            col.innerHTML = `<div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">${isMe ? 'You' : p.name}</div>${pips}<div style="font-family:'JetBrains Mono',monospace;font-size:1.6em;font-weight:900;color:${isMe ? 'var(--neon-lime)' : 'var(--neon-pink)'};margin-top:8px;">${wins}</div>`;
-            boDiv.appendChild(col);
-        });
-        section.appendChild(boDiv);
 
-        if (isHost) document.getElementById('restartBtn').style.display = 'block';
-        else        document.getElementById('restartHint').style.display = 'flex';
+        // ── BO pip row (multiplayer only) ──────────────────────────────
+        if (!d.isSolo) {
+            const roundWins  = d.roundWins || d.scores || {};
+            const winsNeeded = typeof clBo === 'number' ? Math.ceil(clBo / 2) : 2;
+            const boDiv = document.createElement('div');
+            boDiv.style.cssText = 'display:flex;justify-content:center;gap:32px;margin-bottom:20px;';
+            (d.players || []).forEach(p => {
+                const wins = roundWins[p.id] || 0;
+                const isMe = p.id === myId;
+                const col  = document.createElement('div');
+                col.style.cssText = 'text-align:center;';
+                let pips = '';
+                for (let i = 0; i < (d.bo || clBo || 3); i++) {
+                    const f = i < wins;
+                    pips += '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;margin:0 3px;background:' +
+                        (f ? (isMe ? 'var(--neon-lime)' : 'var(--neon-pink)') : 'rgba(255,255,255,0.08)') +
+                        ';box-shadow:' + (f ? '0 0 8px rgba(163,255,18,0.4)' : 'none') + ';"></span>';
+                }
+                const nameDiv = document.createElement('div');
+                nameDiv.style.cssText = 'font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;';
+                nameDiv.innerText = isMe ? 'You' : p.name;
+                col.innerHTML = '';
+                col.appendChild(nameDiv);
+                col.insertAdjacentHTML('beforeend', pips);
+                const winsDiv = document.createElement('div');
+                winsDiv.style.cssText = 'font-family:"JetBrains Mono",monospace;font-size:1.6em;font-weight:900;margin-top:8px;color:' + (isMe ? 'var(--neon-lime)' : 'var(--neon-pink)') + ';';
+                winsDiv.innerText = wins;
+                col.appendChild(winsDiv);
+                boDiv.appendChild(col);
+            });
+            section.appendChild(boDiv);
+        }
+
+        // ── Collapsible word history per player ────────────────────────
+        const players = d.players || [{ id: myId, name: playerName }];
+        players.forEach(p => {
+            const isMe     = p.id === myId;
+            const history  = wordHistory[p.id] || (isMe ? clMyHistory : []);
+            const accepted = history.filter(e => e.status === 'accepted').length;
+            const total    = history.length;
+
+            const section2 = document.createElement('div');
+            section2.className = 'cl-collapsible';
+
+            const headerColor = isMe ? 'var(--neon-cyan)' : 'var(--text-primary)';
+            const scoreColor  = accepted > 0 ? 'var(--neon-lime)' : 'var(--text-muted)';
+
+            section2.innerHTML =
+                '<div class="cl-collapsible-header" onclick="clToggleCollapsible(this)">' +
+                    '<span class="cl-coll-name" style="color:' + headerColor + ';">' + (isMe ? 'You (' + p.name + ')' : p.name) + '</span>' +
+                    '<span style="display:flex;align-items:center;gap:10px;">' +
+                        '<span class="cl-coll-score" style="color:' + scoreColor + ';">' + accepted + ' accepted</span>' +
+                        '<span style="color:var(--text-muted);font-size:0.78em;">' + total + ' total</span>' +
+                        '<span class="cl-coll-arrow">▼</span>' +
+                    '</span>' +
+                '</div>' +
+                '<div class="cl-collapsible-body"></div>';
+
+            // Populate word list
+            const body = section2.querySelector('.cl-collapsible-body');
+            if (history.length === 0) {
+                body.innerHTML = '<div style="padding:10px 4px;color:var(--text-muted);font-size:0.82em;text-align:center;">No submissions</div>';
+            } else {
+                history.slice().reverse().forEach(entry => {
+                    body.appendChild(clMakeWordEntry(entry));
+                });
+            }
+
+            section.appendChild(section2);
+        });
+
+        // ── Action buttons ─────────────────────────────────────────────
+        if (d.isSolo) {
+            // Solo: no "Play Again" in endless mode, just Game Selection
+        } else if (isHost) {
+            document.getElementById('restartBtn').style.display = 'block';
+        } else {
+            document.getElementById('restartHint').style.display = 'flex';
+        }
     });
+
+    function clToggleCollapsible(header) {
+        header.classList.toggle('open');
+        const body = header.nextElementSibling;
+        body.classList.toggle('open');
+    }
 
     function restartGame() {
         socket.emit('resetGame');

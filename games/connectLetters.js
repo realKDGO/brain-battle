@@ -1,18 +1,4 @@
 // games/connectLetters.js  — Connect the Letters
-//
-// Single Player (1P): Endless mode. System generates start+end letters.
-//   Player has 15s to submit a valid word. On success or timeout → new letters, new 15s timer.
-//   No Best-Of format. Game continues until player exits.
-//
-// 1v1 (2P): Setup phase required each round.
-//   P1 submits a letter (start), P2 submits a letter (end). Letters hidden until both submit.
-//   Countdown begins only after both letters are in.
-//   Best-Of format (BO3/BO5/BO7). First to ceil(N/2) round wins.
-//
-// Royal Rumble (3P+): System generates start+end letters. No setup phase.
-//   Best-Of format (BO3/BO5/BO7). First to ceil(N/2) round wins.
-//   No 15-second timer. Rounds end by multiplayer round rules only.
-
 'use strict';
 
 const checkWord = require('check-word');
@@ -20,18 +6,46 @@ const dict      = checkWord('en');
 
 const ALL_LETTERS = 'ABCDEFGHIJKLMNOPRSTUW';
 
+const VALID_PAIRS = new Set([
+  'AT','AN','AL','AR','AS','AK','AD','AY',
+  'BA','BE','BT','BN','BO','BL','BY',
+  'CA','CE','CH','CK','CL','CT','CN',
+  'DA','DE','DK','DN','DO','DR','DS','DY',
+  'EA','ED','EL','EN','ER','ES','ET','EW',
+  'FA','FE','FL','FN','FT','FY',
+  'GA','GE','GL','GN','GO','GS','GT',
+  'HA','HE','HN','HO','HS','HT',
+  'IA','IC','ID','IN','IO','IS','IT',
+  'KA','KE','KN',
+  'LA','LE','LK','LL','LO','LS','LT','LY',
+  'MA','ME','MN','MO','MS','MT','MY',
+  'NA','NE','NK','NO','NS','NT','NY',
+  'OA','OB','OD','OF','ON','OR','OT','OW','OY',
+  'PA','PE','PH','PK','PL','PN','PT','PY',
+  'RA','RE','RK','RN','RO','RS','RT','RY',
+  'SA','SE','SH','SK','SL','SM','SN','SO','SP','SS','ST','SW','SY',
+  'TA','TE','TH','TK','TN','TO','TS','TT','TY',
+  'UA','UE','UN','UP','UR','US','UT',
+  'WA','WE','WN','WO','WS','WT',
+  'YA','YE',
+]);
+
+function isValidPair(start, end) {
+  return VALID_PAIRS.has(start + end);
+}
+
+function randomValidPair() {
+  const candidates = [...VALID_PAIRS]
+    .filter(p => p.length === 2 && ALL_LETTERS.includes(p[0]) && ALL_LETTERS.includes(p[1]) && p[0] !== p[1]);
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  return { start: pick[0], end: pick[1] };
+}
+
 function randomLetter() {
   return ALL_LETTERS[Math.floor(Math.random() * ALL_LETTERS.length)];
 }
 
-function randomLetterPair() {
-  const s = randomLetter();
-  let e;
-  do { e = randomLetter(); } while (e === s);
-  return { start: s, end: e };
-}
-
-// ─── Dictionary ───────────────────────────────────────────────────────────────
+// ─── Dictionary + Definition ──────────────────────────────────────────────────
 async function isValidWord(word) {
   const apiKey = process.env.MW_API_KEY;
   const w = word.toLowerCase();
@@ -46,64 +60,88 @@ async function isValidWord(word) {
   } catch { return dict.check(w); }
 }
 
+// Returns { valid: bool, definition: string|null }
+async function lookupWord(word) {
+  const w = word.toLowerCase();
+  const apiKey = process.env.MW_API_KEY;
+  if (!apiKey) {
+    const valid = dict.check(w);
+    return { valid, definition: null };
+  }
+  try {
+    const res = await fetch(
+      `https://www.dictionaryapi.com/api/v3/references/collegiate/json/${encodeURIComponent(w)}?key=${apiKey}`
+    );
+    if (!res.ok) { const v = dict.check(w); return { valid: v, definition: null }; }
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length || typeof data[0] !== 'object') {
+      return { valid: false, definition: null };
+    }
+    // Extract first short definition
+    const entry = data[0];
+    let definition = null;
+    if (entry.shortdef && entry.shortdef.length) {
+      definition = entry.shortdef[0];
+    } else if (entry.def && entry.def[0]?.sseq?.[0]?.[0]?.[1]?.dt?.[0]?.[1]) {
+      definition = entry.def[0].sseq[0][0][1].dt[0][1].replace(/\{[^}]+\}/g, '').trim();
+    }
+    return { valid: true, definition };
+  } catch {
+    return { valid: dict.check(w), definition: null };
+  }
+}
+
 // ─── init ─────────────────────────────────────────────────────────────────────
 function init(players, options = {}) {
   const n         = players.length;
   const playerIds = players.map(p => p.id);
 
-  // Mode detection
-  const isSolo      = n === 1;   // Endless, no BO
-  const is1v1       = n === 2;   // Player-provided letters, BO
-  const isRoyalRumble = n >= 3;  // System letters, BO
-
-  const bo = isSolo ? null : (options.bo || 3);  // Solo has no BO
+  const isSolo        = n === 1;
+  const is1v1         = n === 2;
+  const isRoyalRumble = n >= 3;
+  const bo = isSolo ? null : (options.bo || 3);
 
   const roundWins = {};
   for (const p of players) roundWins[p.id] = 0;
 
-  const gameData = {
+  return {
     playerIds,
     isSolo,
     is1v1,
     isRoyalRumble,
     bo,
-    winsNeeded: bo ? Math.ceil(bo / 2) : null,
+    winsNeeded:        bo ? Math.ceil(bo / 2) : null,
     roundWins,
-    round: 0,
-    roundState: 'IDLE', // IDLE | LETTER_INPUT | ACTIVE | CHALLENGE
-    startLetter: null,
-    endLetter: null,
-    submittedLetters: {},
-    roundWinner: null,
-    challengeActive: false,
+    round:             0,
+    roundState:        'IDLE',
+    startLetter:       null,
+    endLetter:         null,
+    submittedLetters:  {},
+    roundWinner:       null,
+    challengeActive:   false,
     challengeDeadline: null,
-    matchWinner: null,
-    simultaneous: true,
-    // systemLetters: true for 1P and 3P+, false for 2P
-    systemLetters: !is1v1,
-    // Track solo successful words
-    soloWords: isSolo ? [] : null,
+    matchWinner:       null,
+    simultaneous:      true,
+    systemLetters:     !is1v1,
+    // Word history: every submission across all rounds, keyed by playerId
+    wordHistory:       Object.fromEntries(playerIds.map(id => [id, []])),
   };
-
-  return gameData;
 }
 
 // ─── startRound ───────────────────────────────────────────────────────────────
 function startRound(gameData) {
-  gameData.round += 1;
-  gameData.roundWinner = null;
-  gameData.challengeActive = false;
+  gameData.round            += 1;
+  gameData.roundWinner       = null;
+  gameData.challengeActive   = false;
   gameData.challengeDeadline = null;
-  gameData.submittedLetters = {};
+  gameData.submittedLetters  = {};
 
   if (gameData.systemLetters) {
-    // 1P and 3P+: system picks letters
-    const pair = randomLetterPair();
+    const pair = randomValidPair();
     gameData.startLetter = pair.start;
     gameData.endLetter   = pair.end;
     gameData.roundState  = 'ACTIVE';
   } else {
-    // 2P: players must submit letters first
     gameData.startLetter = null;
     gameData.endLetter   = null;
     gameData.roundState  = 'LETTER_INPUT';
@@ -133,7 +171,6 @@ function handleSetup(gameData, socketId, data) {
   const allIn = gameData.playerIds.every(id => gameData.submittedLetters[id]);
   if (!allIn) return { success: true, waiting: true };
 
-  // Both submitted — assign letters
   const [p0, p1] = gameData.playerIds;
   let start = gameData.submittedLetters[p0];
   let end   = gameData.submittedLetters[p1];
@@ -148,70 +185,123 @@ function handleSetup(gameData, socketId, data) {
 }
 
 // ─── handleAction ─────────────────────────────────────────────────────────────
+// Returns rich result including definition and rejection reason for history.
 async function handleAction(gameData, currentPlayer, data) {
   if (gameData.roundState !== 'ACTIVE' && gameData.roundState !== 'CHALLENGE') {
     return { success: false, error: 'Round is not active.' };
   }
 
-  const word = (data?.word || '').trim().toUpperCase();
+  const word  = (data?.word || '').trim().toUpperCase();
+  const pid   = currentPlayer.id;
+  const start = gameData.startLetter;
+  const end   = gameData.endLetter;
+
   if (!word || word.length < 2) return { success: false, error: 'Word too short.' };
   if (!/^[A-Z]+$/.test(word))   return { success: false, error: 'Letters only.' };
 
-  if (word[0] !== gameData.startLetter) {
-    return { success: false, error: `Word must start with "${gameData.startLetter}".` };
-  }
-  if (word[word.length - 1] !== gameData.endLetter) {
-    return { success: false, error: `Word must end with "${gameData.endLetter}".` };
-  }
+  const wrongStart = word[0] !== start;
+  const wrongEnd   = word[word.length - 1] !== end;
 
-  const valid = await isValidWord(word);
+  // Always look up the word so we can show a definition even for rejected valid words
+  const { valid: isEnglishWord, definition } = await lookupWord(word);
 
-  if (!valid) {
+  // Ensure history array exists for this player
+  if (!gameData.wordHistory) gameData.wordHistory = {};
+  if (!gameData.wordHistory[pid]) gameData.wordHistory[pid] = [];
+
+  if (!isEnglishWord) {
+    // Not a real word
+    gameData.wordHistory[pid].push({
+      word,
+      status: 'invalid_dict',
+      round:  gameData.round,
+      definition: null,
+      rejectionReason: null,
+      startLetter: start,
+      endLetter: end,
+    });
     return {
-      success: false,
-      error: `"${word}" is not a valid word.`,
+      success:     false,
+      error:       `"${word}" is not a valid English word.`,
       invalidWord: true,
-      challengerId: currentPlayer.id,
+      challengerId: pid,
+      historyEntry: gameData.wordHistory[pid].at(-1),
     };
   }
 
-  // Valid word
-  gameData.roundWinner    = currentPlayer.id;
-  gameData.roundState     = 'IDLE';
+  if (wrongStart || wrongEnd) {
+    // Valid English word but wrong letters
+    const reasons = [];
+    if (wrongStart) reasons.push(`must start with "${start}"`);
+    if (wrongEnd)   reasons.push(`must end with "${end}"`);
+    const rejectionReason = reasons.join(' and ');
+
+    gameData.wordHistory[pid].push({
+      word,
+      status: 'wrong_letters',
+      round:  gameData.round,
+      definition,
+      rejectionReason,
+      startLetter: start,
+      endLetter: end,
+    });
+    return {
+      success:         false,
+      error:           `"${word}" ${rejectionReason}.`,
+      wrongLetters:    true,
+      definition,
+      rejectionReason,
+      historyEntry:    gameData.wordHistory[pid].at(-1),
+    };
+  }
+
+  // Accepted
+  gameData.wordHistory[pid].push({
+    word,
+    status: 'accepted',
+    round:  gameData.round,
+    definition,
+    rejectionReason: null,
+    startLetter: start,
+    endLetter: end,
+  });
+
+  gameData.roundWinner     = pid;
+  gameData.roundState      = 'IDLE';
   gameData.challengeActive = false;
 
-  // Solo: record word, no round-win tracking
   if (gameData.isSolo) {
-    gameData.soloWords = gameData.soloWords || [];
-    gameData.soloWords.push(word);
     return {
-      success: true,
+      success:      true,
       word,
-      roundWinner: currentPlayer.id,
-      isSolo: true,
-      soloWordCount: gameData.soloWords.length,
+      definition,
+      roundWinner:  pid,
+      isSolo:       true,
+      soloWordCount: gameData.wordHistory[pid].filter(e => e.status === 'accepted').length,
+      wordHistory:  gameData.wordHistory[pid],
     };
   }
 
-  // 2P / 3P+: track round wins and check BO match end
-  gameData.roundWins[currentPlayer.id] = (gameData.roundWins[currentPlayer.id] || 0) + 1;
-  const wins = gameData.roundWins[currentPlayer.id];
+  gameData.roundWins[pid] = (gameData.roundWins[pid] || 0) + 1;
+  const wins     = gameData.roundWins[pid];
   const matchWon = wins >= gameData.winsNeeded;
-  if (matchWon) gameData.matchWinner = currentPlayer.id;
+  if (matchWon) gameData.matchWinner = pid;
 
   return {
-    success: true,
+    success:     true,
     word,
-    roundWinner:  currentPlayer.id,
-    roundWins:    gameData.roundWins,
+    definition,
+    roundWinner: pid,
+    roundWins:   gameData.roundWins,
     matchWon,
-    matchWinner:  gameData.matchWinner,
+    matchWinner: gameData.matchWinner,
+    wordHistory: gameData.wordHistory,
   };
 }
 
 // ─── checkGameEnd ─────────────────────────────────────────────────────────────
 function checkGameEnd(gameData) {
-  if (gameData.isSolo) return false; // Endless — never auto-ends
+  if (gameData.isSolo) return false;
   return !!gameData.matchWinner;
 }
 
@@ -220,14 +310,16 @@ function getInitialPayload(gameData) {
   const result = {};
   for (const id of (gameData.playerIds || [])) {
     result[id] = {
-      isSolo:      gameData.isSolo,
-      bo:          gameData.bo,
-      winsNeeded:  gameData.winsNeeded,
-      roundWins:   gameData.roundWins,
-      round:       gameData.round,
-      roundState:  gameData.roundState,
-      startLetter: gameData.startLetter,
-      endLetter:   gameData.endLetter,
+      isSolo:       gameData.isSolo,
+      systemLetters: gameData.systemLetters,
+      bo:           gameData.bo,
+      winsNeeded:   gameData.winsNeeded,
+      roundWins:    gameData.roundWins,
+      round:        gameData.round,
+      roundState:   gameData.roundState,
+      startLetter:  gameData.startLetter,
+      endLetter:    gameData.endLetter,
+      wordHistory:  gameData.wordHistory || {},
     };
   }
   return result;
@@ -235,6 +327,7 @@ function getInitialPayload(gameData) {
 
 module.exports = {
   simultaneous: true,
+  isValidPair,
   init,
   startRound,
   handleSetup,
@@ -242,4 +335,5 @@ module.exports = {
   checkGameEnd,
   getInitialPayload,
   isValidWord,
+  lookupWord,
 };

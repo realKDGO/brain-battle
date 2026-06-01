@@ -119,6 +119,16 @@ io.on("connection", (socket) => {
   });
 
   // ── joinRoom ───────────────────────────────────────────────────────────────
+  // ── checkRoomGameMode: peek at a room's game type before joining ──────────
+  // Returns { exists, gameMode } so the client can warn before cross-game joins.
+  socket.on('checkRoomGameMode', ({ roomCode } = {}) => {
+    if (!roomCode) return socket.emit('checkRoomGameModeResponse', { exists: false });
+    const { getRoom } = require('./rooms/roomManager');
+    const room = getRoom(roomCode.trim().toUpperCase());
+    if (!room) return socket.emit('checkRoomGameModeResponse', { exists: false });
+    socket.emit('checkRoomGameModeResponse', { exists: true, gameMode: room.gameMode });
+  });
+
   socket.on("joinRoom", ({ roomCode, playerName, gameType } = {}) => {
     if (!roomCode || typeof roomCode !== "string") {
       return socket.emit("joinRoomResponse", {
@@ -176,6 +186,19 @@ io.on("connection", (socket) => {
         if (room.gameData.playerIds) {
           const idx = room.gameData.playerIds.indexOf(oldId);
           if (idx !== -1) room.gameData.playerIds[idx] = socket.id;
+        }
+        // Remap CL-specific keyed objects
+        if (room.gameData.wordHistory && oldId in room.gameData.wordHistory) {
+          room.gameData.wordHistory[socket.id] = room.gameData.wordHistory[oldId];
+          delete room.gameData.wordHistory[oldId];
+        }
+        if (room.gameData.roundWins && oldId in room.gameData.roundWins) {
+          room.gameData.roundWins[socket.id] = room.gameData.roundWins[oldId];
+          delete room.gameData.roundWins[oldId];
+        }
+        if (room.gameData.submittedLetters && oldId in room.gameData.submittedLetters) {
+          room.gameData.submittedLetters[socket.id] = room.gameData.submittedLetters[oldId];
+          delete room.gameData.submittedLetters[oldId];
         }
         console.log(`[Room] Remapped gameData for "${playerName}" from ${oldId} → ${socket.id}`);
       }
@@ -568,7 +591,38 @@ io.on("connection", (socket) => {
     });
   }
 
-  // ── clStartRound (host triggers each new round) ───────────────────────────
+  // ── clStartIntermission ────────────────────────────────────────────────────
+  // Called after a round ends (non-solo, non-match-over).
+  // Broadcasts a 15s intermission countdown then auto-starts next round.
+  function clStartIntermission(roomCode, room, ioRef) {
+    let cancelled = false;
+    const cancel  = () => { cancelled = true; startNext(); };
+    room._clIntermissionCancel = cancel;
+
+    ioRef.to(roomCode).emit('clIntermission', { seconds: 15 });
+
+    const t = setTimeout(() => {
+      if (!cancelled) startNext();
+    }, 15000);
+
+    function startNext() {
+      clearTimeout(t);
+      room._clIntermissionCancel = null;
+      if (!room.gameData) return;
+      const mod = require('./games/index').getGameModule('CONNECT_LETTERS');
+      const info = mod.startRound(room.gameData);
+      room.gameState = 'ACTIVE';
+      if (info.roundState === 'ACTIVE') {
+        clBroadcast(roomCode, room, 'clRoundStart', { countdown: 3, soloTimer: null });
+      } else {
+        clBroadcast(roomCode, room, 'clLetterInputPhase', {});
+      }
+      broadcastRoomUpdate(roomCode, room);
+    }
+  }
+
+  // ── clStartRound (host triggers FIRST round only) ───────────────────────────
+
   socket.on('clStartRound', () => {
     const ctx = requireRoom(socket, 'clStartRound');
     if (!ctx) return;
@@ -584,8 +638,11 @@ io.on("connection", (socket) => {
       // System letters (1P solo or 3P+ Royal Rumble)
       const isSolo = room.players.length === 1;
       clBroadcast(roomCode, room, 'clRoundStart', {
-        countdown: 3,
-        soloTimer: isSolo ? 15 : null,
+        countdown:   3,
+        soloTimer:   isSolo ? 15 : null,
+        startLetter: room.gameData.startLetter,
+        endLetter:   room.gameData.endLetter,
+        round:       room.gameData.round,
       });
       if (isSolo) {
         // Schedule 15s expiry: if still ACTIVE (no word submitted), generate new letters
@@ -600,10 +657,13 @@ io.on("connection", (socket) => {
             mod3.startRound(room.gameData); // increments round, picks new letters
             room.gameState = 'ACTIVE';
             clBroadcast(roomCode, room, 'clRoundStart', {
-              countdown: 0,
-              soloTimer: 15,
-              autoStart: true,
+              countdown:   0,
+              soloTimer:   15,
+              autoStart:   true,
               timerExpired: true,
+              startLetter: room.gameData.startLetter,
+              endLetter:   room.gameData.endLetter,
+              round:       room.gameData.round,
             });
             broadcastRoomUpdate(roomCode, room);
           }
@@ -629,8 +689,22 @@ io.on("connection", (socket) => {
     socket.emit('clLetterSubmitResponse', { success: result.success, error: result.error, waiting: result.waiting });
 
     if (result.success && result.ready) {
-      // Both letters in — countdown begins now (2P only, no solo timer)
-      clBroadcast(roomCode, room, 'clRoundStart', { countdown: 3, soloTimer: null });
+      const mod2 = require('./games/index').getGameModule('CONNECT_LETTERS');
+      const pairOk = mod2.isValidPair(result.startLetter, result.endLetter);
+      if (!pairOk) {
+        // No valid English word possible — reset round to letter input
+        room.gameData.roundState      = 'LETTER_INPUT';
+        room.gameData.startLetter     = null;
+        room.gameData.endLetter       = null;
+        room.gameData.submittedLetters = {};
+        io.to(roomCode).emit('clInvalidPair', {
+          message: 'No valid English word can be formed from these letters. Round restarting.',
+        });
+        clBroadcast(roomCode, room, 'clLetterInputPhase', {});
+      } else {
+        // Valid pair — countdown begins now (2P only, no solo timer)
+        clBroadcast(roomCode, room, 'clRoundStart', { countdown: 3, soloTimer: null, startLetter: room.gameData.startLetter, endLetter: room.gameData.endLetter, round: room.gameData.round });
+      }
       broadcastRoomUpdate(roomCode, room);
     }
   });
@@ -656,11 +730,13 @@ io.on("connection", (socket) => {
       io.to(roomCode).emit('clRoundEnd', {
         roundWinner:    result.roundWinner,
         word:           result.word,
+        definition:     result.definition || null,
         roundWins:      result.roundWins,
         matchWon:       matchOver,
         matchWinner:    result.matchWinner,
         isSolo:         result.isSolo,
         soloWordCount:  result.soloWordCount,
+        wordHistory:    result.wordHistory || null,
       });
 
       if (result.isSolo) {
@@ -669,9 +745,12 @@ io.on("connection", (socket) => {
         const info = mod2.startRound(room.gameData);
         room.gameState = 'ACTIVE';
         clBroadcast(roomCode, room, 'clRoundStart', {
-          countdown: 0,
-          soloTimer: 15,
-          autoStart: true,
+          countdown:   0,
+          soloTimer:   15,
+          autoStart:   true,
+          startLetter: room.gameData.startLetter,
+          endLetter:   room.gameData.endLetter,
+          round:       room.gameData.round,
         });
         broadcastRoomUpdate(roomCode, room);
       } else if (matchOver) {
@@ -681,23 +760,33 @@ io.on("connection", (socket) => {
         const winner = room.players.find(p => p.id === result.matchWinner) || null;
         io.to(roomCode).emit('endGameResponse', {
           winner,
-          scores:    room.gameData.roundWins,
-          players:   room.players,
-          roundWins: room.gameData.roundWins,
-          bo:        room.gameData.bo,
+          scores:      room.gameData.roundWins,
+          players:     room.players,
+          roundWins:   room.gameData.roundWins,
+          bo:          room.gameData.bo,
+          wordHistory: room.gameData.wordHistory || {},
         });
         broadcastRoomUpdate(roomCode, room);
       } else {
+        // Auto-intermission: 15s break then next round starts automatically
+        clStartIntermission(roomCode, room, io);
         broadcastRoomUpdate(roomCode, room);
       }
 
     } else if (result.invalidWord) {
-      // Invalid word — challenge opponents
-      socket.emit('clWordRejected', { word, error: result.error });
+      // Not a real English word — challenge opponents
+      socket.emit('clWordRejected', {
+        word,
+        error:           result.error,
+        status:          'invalid_dict',
+        definition:      null,
+        rejectionReason: null,
+        historyEntry:    result.historyEntry || null,
+      });
       const others = room.players.filter(p => p.id !== socket.id);
       if (others.length) {
-        room.gameData.roundState     = 'CHALLENGE';
-        room.gameData.challengeActive = true;
+        room.gameData.roundState        = 'CHALLENGE';
+        room.gameData.challengeActive   = true;
         room.gameData.challengeDeadline = Date.now() + 8000;
         io.to(roomCode).emit('clChallenge', {
           challengerSocket: socket.id,
@@ -705,7 +794,6 @@ io.on("connection", (socket) => {
           startLetter: room.gameData.startLetter,
           endLetter:   room.gameData.endLetter,
         });
-        // Auto-expire
         setTimeout(() => {
           if (room.gameData.challengeActive) {
             room.gameData.challengeActive = false;
@@ -714,12 +802,57 @@ io.on("connection", (socket) => {
           }
         }, 8100);
       }
+    } else if (result.wrongLetters) {
+      // Valid English word but wrong first/last letter
+      socket.emit('clWordRejected', {
+        word,
+        error:           result.error,
+        status:          'wrong_letters',
+        definition:      result.definition || null,
+        rejectionReason: result.rejectionReason || null,
+        historyEntry:    result.historyEntry || null,
+      });
     } else {
-      socket.emit('clWordRejected', { word, error: result.error });
+      socket.emit('clWordRejected', { word, error: result.error, status: 'other' });
     }
   });
 
+  // ── clSkipIntermission (host skips the 15s break) ──────────────────────────
+  socket.on('clSkipIntermission', () => {
+    const ctx = requireRoom(socket, 'clSkipIntermission');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (rejectIfNotHost(socket, room, 'clSkipIntermission')) return;
+    if (room._clIntermissionCancel) {
+      room._clIntermissionCancel();
+    }
+  });
+
+  // ── clSoloQuit (solo player ends the endless session) ────────────────────────
+  socket.on('clSoloQuit', () => {
+    const ctx = requireRoom(socket, 'clSoloQuit');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (room.gameMode !== 'CONNECT_LETTERS') return;
+    if (!room.gameData?.isSolo) return;
+
+    room.gameData.roundState = 'IDLE';
+    const player = room.players.find(p => p.id === socket.id);
+    const history = room.gameData.wordHistory?.[socket.id] || [];
+    const accepted = history.filter(e => e.status === 'accepted').length;
+
+    socket.emit('endGameResponse', {
+      winner:      player || null,
+      isSolo:      true,
+      soloQuit:    true,
+      players:     room.players,
+      wordHistory: room.gameData.wordHistory || {},
+      soloWordCount: accepted,
+    });
+  });
+
   // ── clBOSelect (host picks match format in lobby) ─────────────────────────
+
   socket.on('clBOSelect', ({ bo } = {}) => {
     const ctx = requireRoom(socket, 'clBOSelect');
     if (!ctx) return;

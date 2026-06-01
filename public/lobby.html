@@ -558,7 +558,8 @@
             if (action === 'create') {
                 socket.emit('createRoom', { playerName, gameType });
             } else if (action === 'join' && roomCode) {
-                socket.emit('joinRoom', { roomCode, playerName, gameType });
+                // Check room's game mode before joining to catch cross-game room codes
+                socket.emit('checkRoomGameMode', { roomCode });
             } else {
                 showError("Invalid Navigation Parameters.");
             }
@@ -574,6 +575,42 @@
                 showError(d.error);
                 setTimeout(() => window.location.href = 'select.html', 3000);
             }
+        });
+
+        // ── Cross-game room check ──────────────────────────────────────────
+        const GAME_MODE_LABELS = {
+            'CONNECT_LETTERS': 'Connect the Letters',
+            'WORD_CHAIN': 'Word Chain',
+            'GUESS_NUMBER': 'Guess the Number',
+        };
+        const GAME_MODE_PARAMS = {
+            'CONNECT_LETTERS': 'CONNECT_LETTERS',
+            'WORD_CHAIN': 'WORD_CHAIN',
+            'GUESS_NUMBER': 'GUESS_NUMBER',
+        };
+
+        socket.on('checkRoomGameModeResponse', d => {
+            if (!d.exists) {
+                // Room doesn't exist — proceed normally; joinRoom will return the error
+                socket.emit('joinRoom', { roomCode, playerName, gameType });
+                return;
+            }
+            if (d.gameMode === gameType) {
+                // Correct game — proceed normally
+                socket.emit('joinRoom', { roomCode, playerName, gameType });
+                return;
+            }
+            // Wrong game — show popup
+            const label = GAME_MODE_LABELS[d.gameMode] || d.gameMode;
+            document.getElementById('crossGameMsg').innerText =
+                'This room belongs to a different game: ' + label + '.';
+            document.getElementById('crossGameOverlay').style.display = 'flex';
+            // "Proceed to Join" redirects to the correct game's lobby
+            document.getElementById('crossGameProceedBtn').onclick = function() {
+                document.getElementById('crossGameOverlay').style.display = 'none';
+                const correctParam = GAME_MODE_PARAMS[d.gameMode] || d.gameMode;
+                window.location.href = 'lobby.html?action=join&game=' + correctParam + '&room=' + roomCode;
+            };
         });
 
         socket.on('joinRoomResponse', d => {
@@ -727,5 +764,17 @@
             socket.emit('startSetup');
         }
     </script>
+    <!-- ── Cross-game room dialog ─────────────────────────────────────── -->
+    <div id="crossGameOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,10,15,0.85);backdrop-filter:blur(8px);z-index:3000;align-items:center;justify-content:center;">
+        <div style="background:rgba(18,18,28,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+            <h3 style="font-size:1em;font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;color:var(--neon-pink);">Wrong Game</h3>
+            <p id="crossGameMsg" style="font-size:0.88em;color:var(--neon-text-muted, #6B6B80);line-height:1.6;margin-bottom:20px;"></p>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button style="font-family:Outfit,sans-serif;font-size:0.88em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border:none;border-radius:8px;cursor:pointer;padding:12px 20px;background:rgba(255,255,255,0.08);color:#F0F0F5;border:1px solid rgba(255,255,255,0.12);"
+                    onclick="document.getElementById('crossGameOverlay').style.display='none'">Close</button>
+                <button id="crossGameProceedBtn" style="font-family:Outfit,sans-serif;font-size:0.88em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border:none;border-radius:8px;cursor:pointer;padding:12px 20px;background:#A3FF12;color:#0A0A0F;">Proceed to Join</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
