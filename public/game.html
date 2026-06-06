@@ -1882,7 +1882,61 @@
         }
 
         function restartGame() {
-            socket.emit("resetGame");
+            console.log('[PlayAgain] Play Again clicked (Word Chain)');
+            socket.emit('playAgainNew');
+        }
+
+        socket.on('playAgainNewResponse', d => {
+            if (!d.success) { showNotification(d.error || 'Could not create new room.', 'error'); return; }
+            console.log('[PlayAgain] New room created:', d.newCode);
+            // Host uses rejoin so lobby recognises them as host, not a joining player
+            window.location.href = `lobby.html?action=rejoin&room=${d.newCode}&game=${d.gameType}`;
+        });
+        });
+
+        socket.on('reInviteDialog', d => {
+            console.log('[PlayAgain] Invitation received, newCode:', d.newCode, 'gameType:', d.gameType);
+            showReInviteDialog(d);
+        });
+
+        socket.on('reInviteDeclined', d => {
+            showNotification(d.name + ' declined the invitation.', 'error');
+        });
+
+        socket.on('reInviteResponseResult', d => {
+            if (d.success) {
+                console.log('[PlayAgain] Accepted — joining lobby:', d.newCode);
+                console.log('[PlayAgain] Join-room redirect to:', d.newCode, d.gameType);
+                window.location.href = `lobby.html?action=join&room=${d.newCode}&game=${d.gameType}`;
+            } else {
+                showNotification(d.error || 'Could not join new room.', 'error');
+            }
+        });
+
+        function showReInviteDialog(d) {
+            const existing = document.getElementById('reInviteOverlay');
+            if (existing) existing.remove();
+            const overlay = document.createElement('div');
+            overlay.id = 'reInviteOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,10,15,0.88);backdrop-filter:blur(10px);z-index:3000;display:flex;align-items:center;justify-content:center;';
+            overlay.innerHTML = `<div style="background:rgba(18,18,28,0.98);border:1px solid rgba(139,92,246,0.3);border-radius:16px;padding:28px 24px;max-width:340px;width:90%;text-align:center;">
+                <h3 style="color:var(--neon-violet);text-transform:uppercase;letter-spacing:3px;font-size:0.9em;margin-bottom:12px;">New Match</h3>
+                <p style="color:var(--text-muted);font-size:0.85em;margin-bottom:20px;">${d.message || 'The host has created a new room.'}</p>
+                <div style="display:flex;gap:10px;">
+                    <button onclick="reInviteRespond('accept','${d.newCode}','${d.gameType}')" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--neon-cyan),rgba(0,200,220,0.8));color:#0A0A0F;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">Join</button>
+                    <button onclick="reInviteRespond('decline','${d.newCode}','${d.gameType}')" style="flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:var(--text-primary);font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">Quit</button>
+                </div>
+            </div>`;
+            document.body.appendChild(overlay);
+        }
+
+        function reInviteRespond(action, newCode, gameType) {
+            const overlay = document.getElementById('reInviteOverlay');
+            if (overlay) overlay.remove();
+            const playerName = sessionStorage.getItem('playerName') || '';
+            console.log('[PlayAgain] Join clicked — newCode:', newCode, 'gameType:', gameType, 'action:', action);
+            console.log('[PlayAgain] Emitting reInviteResponse...');
+            socket.emit('reInviteResponse', { newCode, action, playerName });
         }
 
         socket.on('roomUpdate', (r) => {

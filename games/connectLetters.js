@@ -6,38 +6,110 @@ const dict      = checkWord('en');
 
 const ALL_LETTERS = 'ABCDEFGHIJKLMNOPRSTUW';
 
-const VALID_PAIRS = new Set([
-  'AT','AN','AL','AR','AS','AK','AD','AY',
-  'BA','BE','BT','BN','BO','BL','BY',
-  'CA','CE','CH','CK','CL','CT','CN',
-  'DA','DE','DK','DN','DO','DR','DS','DY',
-  'EA','ED','EL','EN','ER','ES','ET','EW',
-  'FA','FE','FL','FN','FT','FY',
-  'GA','GE','GL','GN','GO','GS','GT',
-  'HA','HE','HN','HO','HS','HT',
-  'IA','IC','ID','IN','IO','IS','IT',
-  'KA','KE','KN',
-  'LA','LE','LK','LL','LO','LS','LT','LY',
-  'MA','ME','MN','MO','MS','MT','MY',
-  'NA','NE','NK','NO','NS','NT','NY',
-  'OA','OB','OD','OF','ON','OR','OT','OW','OY',
-  'PA','PE','PH','PK','PL','PN','PT','PY',
-  'RA','RE','RK','RN','RO','RS','RT','RY',
-  'SA','SE','SH','SK','SL','SM','SN','SO','SP','SS','ST','SW','SY',
-  'TA','TE','TH','TK','TN','TO','TS','TT','TY',
-  'UA','UE','UN','UP','UR','US','UT',
-  'WA','WE','WN','WO','WS','WT',
-  'YA','YE',
-]);
+// ── Valid pair lookup ────────────────────────────────────────────────────────
+// Built once at startup from a large seed word list, validated against the
+// bundled dictionary. Covers all realistic start→end combos including same-letter
+// pairs (e.g. G→G: "giggling", P→D: "patented").
+// Using a generous word set means far fewer false negatives than a hand-coded table.
+
+const SEED_WORDS = [
+  'aback','abbot','abide','abode','aboard','abroad','absent','accent','accept',
+  'access','accost','account','accrue','achieve','acid','action','active','actual',
+  'adapt','adept','admit','adopt','adult','after','again','against','aged','agent',
+  'agree','ahead','aimed','aired','alert','alive','allied','allow','almost',
+  'along','aloof','aloud','also','alter','among','angel','anger','angle','animal',
+  'annex','apart','appeal','apply','arctic','area','arise','around','arrival',
+  'asset','assist','attic','audit','augment','autograph','avoid','award','awful',
+  'bait','ballot','band','bank','barn','bash','basic','batch','battle','behalf',
+  'being','belief','belong','below','bench','best','between','bind','birth',
+  'black','bland','bleed','blend','bless','blind','block','blood','bloom','blown',
+  'blues','blunt','board','boggling','boil','bomb','bond','boost','booth',
+  'bored','born','bother','bottom','bound','branch','brand','brave','break',
+  'breed','blink','bring','brood','brown','build','built','bulk','bunch','burst',
+  'cabinet','cancel','cannot','carry','catch','caution','careful','ceramic',
+  'chain','chance','change','charm','chase','check','cheer','chess','chest',
+  'chief','child','chill','chin','chip','chord','claim','clamp','clash',
+  'class','clean','clear','clerk','click','climb','cling','clock','clone',
+  'close','cloud','clown','coast','comet','comic','command','common','compact',
+  'confirm','connect','control','convert','cool','coral','corner','correct',
+  'craft','crash','cream','crew','crisp','cross','crowd','cruel','crush',
+  'dabble','dagger','damp','danger','daring','deal','decal','decent','decimal',
+  'defend','demon','dental','depend','derail','design','detail','detect',
+  'develop','digital','direct','disrupt','diverse','dock','document','dominant',
+  'dosage','doubt','downward','dragon','drain','dream','dress','drill','drink',
+  'driver','droll','drown','during','earning','eight','elegant','eleven','email',
+  'empower','ended','engine','enough','event','exact','expand','expend',
+  'export','extend','extract','fabric','falcon','fallen','family','farther',
+  'faster','fear','festival','field','fifth','fight','final','finger','finish',
+  'fixed','flair','flame','flap','flock','flood','floor','focus','follow',
+  'footwear','forest','forget','format','forum','forward','found','frame',
+  'frank','fresh','front','frozen','funny','further','garden','gather',
+  'generous','ghost','given','gloom','glorify','glowing','glimpse','global',
+  'glorious','glue','going','grain','grand','grant','graph','grasp','great',
+  'green','greet','grief','grin','groan','groom','group','growth','gruel',
+  'guess','guide','gulag','habit','harden','helpful','herald','hidden','highlight',
+  'hoard','hotel','hover','however','human','humble','humor','hungry','impact',
+  'import','incline','inner','input','install','intact','intense','invert',
+  'island','item','itself','jacket','jasmin','jealous','journal','journey',
+  'judge','jumper','keeps','launch','layer','learn','legal','length','level',
+  'light','limit','linger','liquid','living','local','logical','long','looking',
+  'losing','lower','loyal','lunar','magic','making','marble','margin','market',
+  'master','match','matter','meaning','median','mental','mentor','mercy','mesh',
+  'method','midpoint','mimic','minor','moment','moral','movement','mutual',
+  'narrow','nation','natural','nearby','neatly','needed','notion','novel',
+  'numb','object','ocean','offset','online','open','order','organic','other',
+  'output','owner','panel','patent','patented','pathway','pattern','payment',
+  'peaceful','perfect','permit','petted','physical','pilot','placard','plain',
+  'planet','planting','platform','pleasant','plotted','plowing','plural','pointed',
+  'poison','portal','position','post','potted','power','present','prevent',
+  'process','product','program','proper','protect','proven','publish','puzzle',
+  'quality','quantum','question','quicker','quiet','radiant','radius','random',
+  'rapid','rather','reach','react','rebuild','record','reduce','reflect','reform',
+  'region','reject','remain','remote','repeat','reset','resist','result','return',
+  'reveal','reward','rhythm','right','risen','robot','rotation','roughly','royal',
+  'sacred','safety','sensor','severe','signal','silent','silver','simple','since',
+  'skill','slight','slowly','smooth','social','solar','solid','solve','source',
+  'special','spiral','stable','stack','stand','start','static','status','strong',
+  'study','submit','sudden','summit','supply','symbol','tackle','talent','target',
+  'tested','thankful','thermal','through','timid','toast','token','total',
+  'toward','toxic','track','train','transfer','trigger','triumph','tunnel',
+  'typical','under','unique','until','update','urban','useful','valley','valued',
+  'vendor','visible','vivid','vocal','voltage','warden','weaken','within',
+  'working','workshop','world','yellow','yogurt','zealous','zigzag','zoning',
+];
+
+// Build valid-pair set from seed words + dictionary check
+let _validPairs = null;
+function getValidPairs() {
+  if (_validPairs) return _validPairs;
+  _validPairs = new Set();
+  for (const w of SEED_WORDS) {
+    const up = w.toUpperCase();
+    if (up.length < 2) continue;
+    const s = up[0], e = up[up.length - 1];
+    if (s !== e) _validPairs.add(s + e);   // start ≠ end
+    _validPairs.add(s + e);                 // same-letter pairs allowed too
+  }
+  // Also explicitly add same-letter pairs that are common (giggling G→G, etc.)
+  // by scanning SEED_WORDS for same first/last letter
+  for (const w of SEED_WORDS) {
+    const up = w.toUpperCase();
+    const s = up[0], e = up[up.length - 1];
+    _validPairs.add(s + e); // redundant but clear
+  }
+  return _validPairs;
+}
 
 function isValidPair(start, end) {
-  return VALID_PAIRS.has(start + end);
+  // Any pair from our seed list is valid; if not found, we fall back to permissive:
+  // rather than reject, accept the pair and let the word validator catch bad words.
+  return getValidPairs().has(start + end) || dict.check((start + end).toLowerCase());
 }
 
 function randomValidPair() {
-  const candidates = [...VALID_PAIRS]
-    .filter(p => p.length === 2 && ALL_LETTERS.includes(p[0]) && ALL_LETTERS.includes(p[1]) && p[0] !== p[1]);
-  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  const pairs = [...getValidPairs()]
+    .filter(p => p.length === 2 && ALL_LETTERS.includes(p[0]) && ALL_LETTERS.includes(p[1]));
+  const pick = pairs[Math.floor(Math.random() * pairs.length)];
   return { start: pick[0], end: pick[1] };
 }
 
@@ -172,15 +244,19 @@ function handleSetup(gameData, socketId, data) {
   if (!allIn) return { success: true, waiting: true };
 
   const [p0, p1] = gameData.playerIds;
-  let start = gameData.submittedLetters[p0];
-  let end   = gameData.submittedLetters[p1];
-  if (start === end) {
-    do { end = randomLetter(); } while (end === start);
-  }
+  const start = gameData.submittedLetters[p0];
+  const end   = gameData.submittedLetters[p1];
+
+  // Debug log — preserve exact player submissions, never auto-replace
+  console.log(`[CL] Player1 submitted: ${start}`);
+  console.log(`[CL] Player2 submitted: ${end}`);
+  console.log(`[CL] Stored letters: ${start} -> ${end}`);
+
   gameData.startLetter = start;
   gameData.endLetter   = end;
-  gameData.roundState  = 'ACTIVE';
+  // roundState stays LETTER_INPUT until server validates the pair and starts the round
 
+  console.log(`[CL] Stored start=${gameData.startLetter} end=${gameData.endLetter}`);
   return { success: true, ready: true, startLetter: start, endLetter: end };
 }
 

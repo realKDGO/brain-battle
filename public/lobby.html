@@ -490,6 +490,18 @@
             </select>
         </div>
         <div id="boDisplay" style="display:none;text-align:center;font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--neon-cyan);margin-bottom:4px;"></div>
+        <!-- Dictionary toggle: Connect Letters only (2+ players) -->
+        <div id="clDictSettings" style="display:none;">
+            <!-- Host view -->
+            <div id="clDictHostRow" class="host-settings" style="display:none;">
+                <span class="label" style="margin-bottom:0;">DICTIONARY</span>
+                <button id="clDictToggleBtn" onclick="toggleCLDict()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(163,255,18,0.4);background:rgba(163,255,18,0.12);color:var(--neon-lime);font-weight:700;font-size:0.78em;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">ON</button>
+            </div>
+            <!-- Non-host view -->
+            <div id="clDictGuestRow" style="display:none;text-align:center;font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">
+                Dictionary: <span id="clDictGuestStatus" style="color:var(--neon-lime);">ON</span>
+            </div>
+        </div>
 
         <div class="players-section">
             <div class="section-header">
@@ -557,6 +569,8 @@
             
             if (action === 'create') {
                 socket.emit('createRoom', { playerName, gameType });
+            } else if (action === 'rejoin' && roomCode) {
+                socket.emit('rejoinRoom', { roomCode, playerName, gameType });
             } else if (action === 'join' && roomCode) {
                 // Check room's game mode before joining to catch cross-game room codes
                 socket.emit('checkRoomGameMode', { roomCode });
@@ -573,6 +587,17 @@
                 window.history.replaceState({}, document.title, `?action=join&game=${gameType}&room=${roomCode}`);
             } else {
                 showError(d.error);
+                setTimeout(() => window.location.href = 'select.html', 3000);
+            }
+        });
+
+        socket.on('rejoinRoomResponse', d => {
+            if (d.success) {
+                roomCode = d.roomCode;
+                document.getElementById('roomCode').innerText = roomCode;
+                isHost = true;
+            } else {
+                showError(d.error || 'Could not rejoin room.');
                 setTimeout(() => window.location.href = 'select.html', 3000);
             }
         });
@@ -618,6 +643,8 @@
                 document.getElementById('waitingOverlay').classList.remove('show');
                 roomCode = d.roomCode;
                 document.getElementById('roomCode').innerText = roomCode;
+                // Mark as host immediately if server confirms it (e.g. after Play Again rejoin)
+                if (d.hostId === myId) isHost = true;
             } else if (d.status === 'waiting_for_host') {
                 // Show waiting overlay to the joining player
                 document.getElementById('waitingOverlay').classList.add('show');
@@ -690,6 +717,30 @@
             socket.emit('clBOSelect', { bo: parseInt(val) });
         }
 
+        let clDictEnabled = true;
+        function toggleCLDict() {
+            clDictEnabled = !clDictEnabled;
+            socket.emit('clDictToggle', { enabled: clDictEnabled });
+        }
+        function applyCLDictUI(enabled) {
+            clDictEnabled = enabled;
+            const btn = document.getElementById('clDictToggleBtn');
+            const guestStatus = document.getElementById('clDictGuestStatus');
+            if (btn) {
+                btn.innerText = enabled ? 'ON' : 'OFF';
+                btn.style.borderColor = enabled ? 'rgba(163,255,18,0.4)' : 'rgba(255,60,120,0.4)';
+                btn.style.background  = enabled ? 'rgba(163,255,18,0.12)' : 'rgba(255,60,120,0.12)';
+                btn.style.color       = enabled ? 'var(--neon-lime)' : 'var(--neon-pink)';
+            }
+            if (guestStatus) {
+                guestStatus.innerText = enabled ? 'ON' : 'OFF';
+                guestStatus.style.color = enabled ? 'var(--neon-lime)' : 'var(--neon-pink)';
+            }
+        }
+        socket.on('clDictToggleUpdate', d => {
+            applyCLDictUI(d.enabled !== false);
+        });
+
         socket.on('roomUpdate', r => {
             if (r.gameState !== "LOBBY") {
                 const dest = (gameType === 'CONNECT_LETTERS')
@@ -740,6 +791,15 @@
                 const showBO = (gameType === 'CONNECT_LETTERS') && max >= 2;
                 if (boSettingsEl) boSettingsEl.style.display = showBO ? 'flex' : 'none';
                 if (r.clBO && showBO) { const boSel = document.getElementById('boSelect'); if (boSel) boSel.value = r.clBO; }
+                // CTL dictionary toggle (host)
+                const clDictSettingsEl = document.getElementById('clDictSettings');
+                const clDictHostRow   = document.getElementById('clDictHostRow');
+                const clDictGuestRow  = document.getElementById('clDictGuestRow');
+                const showCLDict = (gameType === 'CONNECT_LETTERS') && max >= 2;
+                if (clDictSettingsEl) clDictSettingsEl.style.display = showCLDict ? 'block' : 'none';
+                if (clDictHostRow)    clDictHostRow.style.display    = showCLDict ? 'flex'  : 'none';
+                if (clDictGuestRow)   clDictGuestRow.style.display   = 'none';
+                if (showCLDict) applyCLDictUI(typeof r.clDictEnabled !== 'undefined' ? r.clDictEnabled : true);
                 startBtn.style.display = 'block';
                 if (max === 1) {
                     // Single player: host can start immediately
@@ -756,6 +816,15 @@
                     boDisp.style.display = showBODisp ? 'block' : 'none';
                     boDisp.innerText = r.clBO ? 'Format: BO' + r.clBO : 'Format: BO3';
                 }
+                // CTL dictionary status (guest view)
+                const clDictSettingsEl = document.getElementById('clDictSettings');
+                const clDictHostRow   = document.getElementById('clDictHostRow');
+                const clDictGuestRow  = document.getElementById('clDictGuestRow');
+                const showCLDict = (gameType === 'CONNECT_LETTERS') && r.players.length >= 2;
+                if (clDictSettingsEl) clDictSettingsEl.style.display = showCLDict ? 'block' : 'none';
+                if (clDictHostRow)    clDictHostRow.style.display    = 'none';
+                if (clDictGuestRow)   clDictGuestRow.style.display   = showCLDict ? 'block' : 'none';
+                if (showCLDict) applyCLDictUI(typeof r.clDictEnabled !== 'undefined' ? r.clDictEnabled : true);
             }
         });
 

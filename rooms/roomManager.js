@@ -62,21 +62,18 @@ function joinRoom(socketId, roomCode, playerName, gameType) {
     return { success: false, error: "You are already in this room." };
   }
 
-  // ── Reconnect by name (lobby → game.html page navigation) ────────────────
-  // When a player navigates between pages, their socket ID changes. During an
-  // in-progress game the old socket may still be alive briefly, making the room
-  // appear full. If the game has already started, allow a reconnect by matching
-  // the player name and replacing the stale socket ID in-place.
+  // ── Reconnect by name ─────────────────────────────────────────────────────
+  // (1) In-progress games: swap stale socket ID with new one.
+  // (2) LOBBY state: also allow name-based swap if the same player is rejoining
+  //     with a new socket (e.g. host returning after Play Again navigation).
   const inProgress = ['SETUP', 'ACTIVE', 'ROUND_END', 'GAME_END'].includes(room.gameState);
-  if (inProgress) {
-    const existingSlot = room.players.find((p) => p.name === playerName);
-    if (existingSlot) {
-      const oldId = existingSlot.id;
-      existingSlot.id = socketId; // Swap socket ID in-place
-      delete existingSlot.disconnected; // Clear disconnected flag
-      if (room.host === oldId) room.host = socketId; // Keep host status
-      return { success: true, roomCode, room, reconnected: true, oldId };
-    }
+  const existingSlot = room.players.find((p) => p.name === playerName);
+  if (existingSlot && (inProgress || room.gameState === 'LOBBY')) {
+    const oldId = existingSlot.id;
+    existingSlot.id = socketId;
+    delete existingSlot.disconnected;
+    if (room.host === oldId) room.host = socketId;
+    return { success: true, roomCode, room, reconnected: true, oldId };
   }
 
   if (room.players.length >= (room.maxPlayers || 2)) {
