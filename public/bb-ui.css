@@ -1,0 +1,69 @@
+/* ── Brain Battle – Shared UI Components ─────────────────────────────────────
+   Include in every game page: <link rel="stylesheet" href="/bb-ui.css">
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* ── Info Button ─────────────────────────────────────────────────────────────
+   A perfect circular info button. Use for any informational tooltip or dialog.
+
+   Usage:
+     <button class="bb-info-btn" onclick="...">i</button>
+
+   Variants (add alongside bb-info-btn):
+     .bb-info-btn--cyan   – cyan accent (default)
+     .bb-info-btn--violet – violet accent
+     .bb-info-btn--muted  – subdued / secondary use
+   ──────────────────────────────────────────────────────────────────────────── */
+.bb-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78em;
+    font-weight: 900;
+    letter-spacing: 0;
+    text-transform: none;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    line-height: 1;
+}
+.bb-info-btn:hover {
+    border-color: var(--neon-cyan, #00F0FF);
+    color: var(--neon-cyan, #00F0FF);
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+}
+
+/* Cyan accent (explicit, matches default hover) */
+.bb-info-btn--cyan {
+    border-color: rgba(0, 240, 255, 0.35);
+    color: rgba(0, 240, 255, 0.7);
+}
+.bb-info-btn--cyan:hover {
+    border-color: var(--neon-cyan, #00F0FF);
+    color: var(--neon-cyan, #00F0FF);
+}
+
+/* Violet accent */
+.bb-info-btn--violet {
+    border-color: rgba(139, 92, 246, 0.4);
+    color: rgba(139, 92, 246, 0.8);
+}
+.bb-info-btn--violet:hover {
+    border-color: var(--neon-violet, #8B5CF6);
+    color: var(--neon-violet, #8B5CF6);
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+}
+
+/* Muted / secondary */
+.bb-info-btn--muted {
+    border-color: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.3);
+}

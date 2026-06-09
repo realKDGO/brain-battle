@@ -6,6 +6,7 @@
     <title>Brain Battle — Word Chain</title>
     <meta name="description" content="Brain Battle Word Chain game. Build a 7-word compound chain, then guess your opponent's hidden words to score points.">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/bb-ui.css">
     <style>
         :root {
             --bg: #0A0A0F;
@@ -1277,7 +1278,7 @@
         <div id="endGameContainer" style="display:none;">
             <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:0;">
                 <h3 id="endMsg" style="margin: 0; text-transform: uppercase; letter-spacing: 4px;">Game Over</h3>
-                <button id="tiebreakerInfoBtn" onclick="openTiebreakerInfo()" title="Why is there a timer?" style="display:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--neon-cyan);background:transparent;color:var(--neon-cyan);font-size:0.8em;font-weight:900;cursor:pointer;flex-shrink:0;padding:0;align-items:center;justify-content:center;transition:all 0.15s ease;font-family:'JetBrains Mono',monospace;">i</button>
+                <button id="tiebreakerInfoBtn" class="bb-info-btn bb-info-btn--cyan" onclick="openTiebreakerInfo()" title="Why is there a timer?" style="display:none;">i</button>
             </div>
             <div id="leaderboardSection" style="margin-bottom: 24px; width: 100%;"></div>
             <div style="display: flex; gap: 12px; margin-top: 15px; width: 100%;">
@@ -1892,7 +1893,6 @@
             // Host uses rejoin so lobby recognises them as host, not a joining player
             window.location.href = `lobby.html?action=rejoin&room=${d.newCode}&game=${d.gameType}`;
         });
-        });
 
         socket.on('reInviteDialog', d => {
             console.log('[PlayAgain] Invitation received, newCode:', d.newCode, 'gameType:', d.gameType);
@@ -2374,7 +2374,7 @@
         }
 
         socket.on('endGameResponse', d => {
-            else { showEndGame(d.winner, d.scores || {}, d.timeTaken || {}, d.players || []); }
+            showEndGame(d.winner, d.scores || {}, d.timeTaken || {}, d.players || []);
         });
 
 

@@ -131,14 +131,15 @@ io.on("connection", (socket) => {
 
   // ── rejoinRoom: host returning to their own room after Play Again ──────────
   socket.on("rejoinRoom", ({ roomCode, playerName, gameType } = {}) => {
-    console.log(`[Rejoin] Request: roomCode=${roomCode} playerName=${playerName} gameType=${gameType} socket=${socket.id}`);
+    console.log(`[DEBUG] Join-room event emitted (rejoin): roomCode=${roomCode} playerName=${playerName} gameType=${gameType} socket=${socket.id}`);
     if (!roomCode || !playerName || !gameType) {
-      console.warn(`[Rejoin] Missing parameters — roomCode:${roomCode} playerName:${playerName} gameType:${gameType}`);
+      console.warn(`[DEBUG] Join-room failed: missing parameters`);
       return socket.emit("rejoinRoomResponse", { success: false, error: "Missing parameters." });
     }
     const room = getRoom(roomCode.toUpperCase());
-    console.log(`[Rejoin] Room lookup for ${roomCode.toUpperCase()}: ${room ? 'FOUND (state: '+room.gameState+')' : 'NOT FOUND'}`);
+    console.log(`[DEBUG] Room lookup for ${roomCode.toUpperCase()}: ${room ? 'FOUND (state: '+room.gameState+')' : 'NOT FOUND'}`);
     if (!room) {
+      console.log('[DEBUG] Join-room failed: room not found');
       return socket.emit("rejoinRoomResponse", { success: false, error: "Room not found." });
     }
     // Add socket to IO room and register as host
@@ -155,7 +156,7 @@ io.on("connection", (socket) => {
     }
     // Reset to LOBBY now that the host's new socket has arrived
     room.gameState = 'LOBBY';
-    console.log(`[Rejoin] ${playerName} rejoined ${roomCode} as host (${socket.id})`);
+    console.log(`[DEBUG] Join-room success. Lobby initialized.`);
     socket.emit("rejoinRoomResponse", { success: true, roomCode, gameType, hostId: socket.id });
     broadcastRoomUpdate(roomCode, room);
   });
@@ -672,6 +673,9 @@ io.on("connection", (socket) => {
       console.log(`[CL] Break ended for room ${roomCode} — broadcasting clBreakEnded`);
       ioRef.to(roomCode).emit('clBreakEnded');
 
+      // Reset per-round pass tracking
+      if (room.gameData.roundPassedPlayers) room.gameData.roundPassedPlayers = new Set();
+
       const mod = require('./games/index').getGameModule('CONNECT_LETTERS');
       const info = mod.startRound(room.gameData);
       room.gameState = 'ACTIVE';
@@ -740,8 +744,8 @@ io.on("connection", (socket) => {
       const el = result.endLetter;
       console.log(`[CL] Validation: ${sl} -> ${el} (from handleSetup: start=${room.gameData.startLetter} end=${room.gameData.endLetter})`);
       // Skip pair-validity check when host has disabled dictionary in lobby
-      const pairOk = (room.clDictEnabled === false) ? true : mod2.isValidPair(sl, el);
-      console.log(`[CL] Validation result: ${pairOk ? 'VALID' : 'INVALID'} (dictEnabled=${room.clDictEnabled !== false})`);
+      const pairOk = (room.dictEnabled === false) ? true : mod2.isValidPair(sl, el);
+      console.log(`[CL] Validation result: ${pairOk ? 'VALID' : 'INVALID'} (dictEnabled=${room.dictEnabled !== false})`);
       console.log(`[CL] Final letters for round: ${sl} -> ${el}`);
       if (!pairOk) {
         // No valid English word possible — reset round to letter input
@@ -775,6 +779,30 @@ io.on("connection", (socket) => {
     const { roomCode, room } = ctx;
     if (room.gameMode !== 'CONNECT_LETTERS') return;
 
+    const gd2 = room.gameData;
+
+    // Reject submission from a player who already passed this round
+    if (!gd2.isSolo && gd2.roundPassedPlayers && gd2.roundPassedPlayers.has(socket.id)) {
+      return socket.emit('clWordRejected', { error: 'You have passed this round.', status: 'other' });
+    }
+
+    // Validation Lock: reject if another validation is already in progress
+    if (!gd2.isSolo && gd2.validationLock) {
+      return socket.emit('clPassResponse', { success: false, error: 'Validation in progress. Please wait.' });
+    }
+
+    // Acquire lock for multiplayer
+    if (!gd2.isSolo) {
+      gd2.validationLock = true;
+      const submitterName = (room.players.find(p => p.id === socket.id) || {}).name || 'A player';
+      const lockMsg = gd2.is1v1
+        ? submitterName + ' submitted a word. Please wait while it is being checked.'
+        : 'A word was submitted. Please wait while it is being checked.';
+      room.players.filter(p => p.id !== socket.id).forEach(p => {
+        io.to(p.id).emit('clValidationLock', { message: lockMsg });
+      });
+    }
+
     socket.emit('clValidating', { word });
 
     const mod    = require('./games/index').getGameModule('CONNECT_LETTERS');
@@ -782,6 +810,12 @@ io.on("connection", (socket) => {
     if (!player) return;
 
     const result = await mod.handleAction(room.gameData, player, { word });
+
+    // Release validation lock
+    if (!room.gameData.isSolo) {
+      room.gameData.validationLock = false;
+      room.players.forEach(p => io.to(p.id).emit('clValidationUnlock', {}));
+    }
 
     if (result.success) {
       // Round won
@@ -865,7 +899,8 @@ io.on("connection", (socket) => {
         }, 8100);
       }
     } else if (result.wrongLetters) {
-      // Valid English word but wrong first/last letter
+      // Valid English word but wrong first/last letter — notify all, 3-second resume countdown
+      // Only submitter gets the rejection entry (word hidden from others)
       socket.emit('clWordRejected', {
         word,
         error:           result.error,
@@ -873,6 +908,12 @@ io.on("connection", (socket) => {
         definition:      result.definition || null,
         rejectionReason: result.rejectionReason || null,
         historyEntry:    result.historyEntry || null,
+      });
+      // Broadcast wrong-letters notice to everyone (no word revealed)
+      io.to(roomCode).emit('clWrongLettersNotice', {
+        countdownMs: 3000,
+        startLetter: room.gameData.startLetter,
+        endLetter:   room.gameData.endLetter,
       });
     } else {
       socket.emit('clWordRejected', { word, error: result.error, status: 'other' });
@@ -893,45 +934,105 @@ io.on("connection", (socket) => {
 
     const pid = socket.id;
 
-    // Track passed rounds per player (hidden from opponents during play)
+    // Prevent double-pass from same player
+    if (!gd.roundPassedPlayers) gd.roundPassedPlayers = new Set();
+    if (gd.roundPassedPlayers.has(pid)) return;
+    gd.roundPassedPlayers.add(pid);
+
+    // Track cumulative passed rounds per player
     if (!gd.passedRounds) gd.passedRounds = {};
     gd.passedRounds[pid] = (gd.passedRounds[pid] || 0) + 1;
+
+    // Release validation lock if held by this player
+    if (!gd.isSolo && gd.validationLock) {
+      gd.validationLock = false;
+      room.players.forEach(p => io.to(p.id).emit('clValidationUnlock', {}));
+    }
 
     socket.emit('clPassResponse', { success: true });
 
     if (gd.isSolo) {
       // Solo: immediately start a new round with fresh letters + reset timer
+      gd.roundPassedPlayers = new Set();
       const mod = require('./games/index').getGameModule('CONNECT_LETTERS');
       mod.startRound(gd);
       room.gameState = 'ACTIVE';
       clBroadcast(roomCode, room, 'clRoundStart', {
-        countdown:   0,
-        soloTimer:   15,
-        autoStart:   true,
-        startLetter: gd.startLetter,
-        endLetter:   gd.endLetter,
-        round:       gd.round,
+        countdown: 0, soloTimer: 15, autoStart: true,
+        startLetter: gd.startLetter, endLetter: gd.endLetter, round: gd.round,
       });
       broadcastRoomUpdate(roomCode, room);
       scheduleSoloExpiry(roomCode, room, gd.round, 15000);
-    } else {
-      // Multiplayer: forfeit = no winner this round; treat like timer expiry
-      gd.roundState  = 'IDLE';
-      gd.roundWinner = null;
-      // Emit clRoundEnd to all — no roundWinner means forfeit/timeout
-      io.to(roomCode).emit('clRoundEnd', {
-        roundWinner: null,
-        word:        null,
-        definition:  null,
-        roundWins:   gd.roundWins,
-        matchWon:    false,
-        matchWinner: null,
-        isSolo:      false,
-      });
-      broadcastRoomUpdate(roomCode, room);
-      // Intermission before next round
-      clStartIntermission(roomCode, room, io);
+      return;
     }
+
+    // ── Multiplayer per-player forfeit ───────────────────────────────────────
+    const activePlayers = room.players; // all players stay on screen
+    const passedCount   = gd.roundPassedPlayers.size;
+    const totalPlayers  = activePlayers.length;
+    const allPassed     = passedCount >= totalPlayers;
+
+    if (allPassed) {
+      // All players passed — skipped round, no winner, no loss
+      gd.roundState        = 'IDLE';
+      gd.roundWinner       = null;
+      gd.roundPassedPlayers = new Set();
+
+      if (gd.is1v1) {
+        // Return both players to letter-input setup for a fresh round
+        const mod = require('./games/index').getGameModule('CONNECT_LETTERS');
+        const info = mod.startRound(gd); // will enter LETTER_INPUT state for 2P
+        room.gameState = 'ACTIVE';
+        io.to(roomCode).emit('clAllPassed', { skippedRound: true });
+        // Brief delay then show letter input phase
+        setTimeout(() => {
+          clBroadcast(roomCode, room, 'clLetterInputPhase', {});
+          broadcastRoomUpdate(roomCode, room);
+        }, 2000);
+      } else {
+        // Royal Rumble: auto-generate new letters and start fresh round immediately
+        const mod = require('./games/index').getGameModule('CONNECT_LETTERS');
+        mod.startRound(gd); // generates new system letters
+        room.gameState = 'ACTIVE';
+        io.to(roomCode).emit('clAllPassed', { skippedRound: true });
+        setTimeout(() => {
+          clBroadcast(roomCode, room, 'clRoundStart', {
+            countdown: 3, soloTimer: null,
+            startLetter: gd.startLetter, endLetter: gd.endLetter, round: gd.round,
+          });
+          broadcastRoomUpdate(roomCode, room);
+        }, 2000);
+      }
+      return;
+    }
+
+    // Some players still active — show blur+waiting to the passer; others continue
+    const passerName = (activePlayers.find(p => p.id === pid) || {}).name || 'A player';
+
+    // Notify the passer: blur overlay + waiting message
+    if (gd.is1v1) {
+      const remainingPlayer = activePlayers.find(p => p.id !== pid);
+      const remainingName   = remainingPlayer ? remainingPlayer.name : 'the other player';
+      socket.emit('clPlayerPassed', {
+        isSelf:        true,
+        waitingFor:    remainingName,
+        is1v1:         true,
+      });
+    } else {
+      socket.emit('clPlayerPassed', {
+        isSelf:     true,
+        waitingFor: null,
+        is1v1:      false,
+      });
+    }
+
+    // Notify remaining players that someone passed (no name reveal in Royal Rumble)
+    activePlayers.filter(p => p.id !== pid).forEach(p => {
+      io.to(p.id).emit('clOpponentPassed', {
+        passerName: gd.is1v1 ? passerName : null,
+        is1v1:      gd.is1v1,
+      });
+    });
   });
 
   // ── clRequestSkip (non-host asks host to skip the break) ───────────────────
@@ -1008,16 +1109,7 @@ io.on("connection", (socket) => {
   });
 
   // ── clDictToggle (host toggles pair-validity check in CTL lobby) ────────────
-  socket.on('clDictToggle', ({ enabled } = {}) => {
-    const ctx = requireRoom(socket, 'clDictToggle');
-    if (!ctx) return;
-    const { roomCode, room } = ctx;
-    if (rejectIfNotHost(socket, room, 'clDictToggle')) return;
-    if (room.gameMode !== 'CONNECT_LETTERS') return;
-    room.clDictEnabled = (enabled !== false);
-    io.to(roomCode).emit('clDictToggleUpdate', { enabled: room.clDictEnabled });
-    broadcastRoomUpdate(roomCode, room);
-  });
+  // (Dictionary toggle for CL is now handled by the unified dictToggle event)
 
   // ── nextTurn ───────────────────────────────────────────────────────────────
   // Host (or server logic) advances to the next player's turn.
@@ -1099,8 +1191,9 @@ io.on("connection", (socket) => {
   // Host creates a BRAND-NEW room, then invites all previous players.
   // Both Word Chain and Connect the Letters use this path.
   socket.on("playAgainNew", ({ playerName: clientName, gameType: clientGameType, guests: clientGuests } = {}) => {
+    console.log('[DEBUG] Play Again clicked by socket', socket.id);
+
     // Try to find the old room — but do NOT fail if it's gone.
-    // The host's socket might have changed page or the room may have been cleaned up.
     const oldCode = findRoomBySocket(socket.id);
     const oldRoom = oldCode ? getRoom(oldCode) : null;
 
@@ -1129,12 +1222,20 @@ io.on("connection", (socket) => {
       oldRoom._clIntermissionCancel();
     }
 
+    // Forcefully remove host from old room so `findRoomBySocket` doesn't get confused
+    // when the host's socket disconnects during page navigation.
+    if (oldRoom) {
+      oldRoom.players = oldRoom.players.filter(p => p.id !== socket.id);
+    }
+
     // Create the new room
     const newResult = createRoom(socket.id, playerName, gameType);
     if (!newResult.success) {
       return socket.emit("playAgainNewResponse", { success: false, error: newResult.error });
     }
     const newCode = newResult.roomCode;
+    console.log('[DEBUG] New room created:', newCode);
+    console.log('[DEBUG] Room saved successfully');
 
     // Set gameState to SETUP temporarily so leaveRoom won't delete the room
     // when S_old (this socket) disconnects during page navigation.
@@ -1144,19 +1245,20 @@ io.on("connection", (socket) => {
     // Move host socket to new IO room; leave old one
     socket.join(newCode);
     if (oldCode) socket.leave(oldCode);
+    console.log('[DEBUG] Host joined new room IO channel');
 
     // Copy relevant settings
+    if (oldRoom?.maxPlayers) newResult.room.maxPlayers = oldRoom.maxPlayers;
     if (oldRoom?.clBO) newResult.room.clBO = oldRoom.clBO;
-    if (typeof oldRoom?.clDictEnabled !== 'undefined') newResult.room.clDictEnabled = oldRoom.clDictEnabled;
-
-    console.log(`[PlayAgain] ${playerName} created ${newCode} (was ${oldCode || 'unknown'})`);
+    if (typeof oldRoom?.dictEnabled !== 'undefined') newResult.room.dictEnabled = oldRoom.dictEnabled;
 
     // Tell host to navigate to new lobby
     socket.emit("playAgainNewResponse", { success: true, newCode, gameType });
 
     // Invite all previous guests
     for (const guest of guests) {
-      console.log(`[PlayAgain] Inviting ${guest.name} (${guest.id}) to ${newCode}`);
+      console.log(`[DEBUG] Invitation sent to ${guest.name} (${guest.id})`);
+      console.log(`[DEBUG] Invitation payload:`, { newCode, gameType });
       io.to(guest.id).emit("reInviteDialog", {
         newCode,
         gameType,
@@ -1177,16 +1279,11 @@ io.on("connection", (socket) => {
     }
 
     if (action === "accept") {
-      console.log(`[PlayAgain] Join invite: ${playerName} → room ${newCode} (mode: ${newRoom.gameMode})`);
-      const joinResult = joinRoom(socket.id, newCode, playerName, newRoom.gameMode);
-      console.log(`[PlayAgain] joinRoom result:`, joinResult.success, joinResult.error || '');
-      if (!joinResult.success) {
-        return socket.emit("reInviteResponseResult", { success: false, error: joinResult.error });
-      }
-      socket.join(newCode);
-      console.log(`[PlayAgain] ${playerName} joined ${newCode} — emitting reInviteResponseResult`);
+      console.log(`[DEBUG] Invitation accepted by ${playerName}`);
+      // The old flow called joinRoom here, which added the guest's OLD socket to the new room.
+      // This caused state mismatches when they navigated to the lobby.
+      // We now just send them to the lobby immediately to execute a normal manual join.
       socket.emit("reInviteResponseResult", { success: true, newCode, gameType: newRoom.gameMode });
-      broadcastRoomUpdate(newCode, newRoom);
     } else {
       // Decline — notify host
       console.log(`[PlayAgain] ${playerName} declined invite for ${newCode}`);

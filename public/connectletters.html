@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brain Battle — Connect the Letters</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/bb-ui.css">
     <style>
         :root {
             --bg:#0A0A0F; --surface:rgba(20,20,32,0.7); --surface-solid:#141420;
@@ -169,13 +170,6 @@
         .cl-word-entry.accepted  .cl-word-entry-word { color: var(--neon-lime); }
         .cl-word-entry.wrong_letters .cl-word-entry-word { color: #f59e0b; }
         .cl-word-entry.invalid_dict  .cl-word-entry-word { color: var(--error); }
-        .cl-word-info-btn {
-            background: transparent; border: 1px solid rgba(255,255,255,0.15);
-            color: var(--text-muted); border-radius: 5px; padding: 3px 8px;
-            font-size: 0.72em; font-weight: 700; letter-spacing: 1px;
-            cursor: pointer; text-transform: uppercase; transition: all 0.15s;
-        }
-        .cl-word-info-btn:hover { border-color: var(--neon-cyan); color: var(--neon-cyan); }
         /* ── Collapsible leaderboard ────────────────────────────────── */
         .cl-collapsible { width: 100%; border-radius: 10px; overflow: hidden;
             border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px; }
@@ -237,7 +231,10 @@
             </p>
             <div class="cl-letter-input-wrap">
                 <input id="clLetterInput" class="cl-letter-box" maxlength="1"
-                    autocomplete="off" spellcheck="false" placeholder="?" />
+                    autocomplete="off" autocorrect="off" autocapitalize="none"
+                    spellcheck="false" inputmode="text" data-form-type="other"
+                    data-lpignore="true" aria-autocomplete="none"
+                    placeholder="?" />
             </div>
         </div>
         <div id="clLetterWaiting" class="cl-waiting" style="display:none;">Waiting for opponent…</div>
@@ -281,7 +278,10 @@
         <div id="clWordFormWrap" style="display:none;width:100%;">
         <div class="cl-word-form">
             <input id="clWordInput" class="cl-word-input" placeholder="TYPE YOUR WORD…"
-                autocomplete="off" spellcheck="false" maxlength="30" />
+                autocomplete="off" autocorrect="off" autocapitalize="none"
+                spellcheck="false" inputmode="text" data-form-type="other"
+                data-lpignore="true" aria-autocomplete="none"
+                maxlength="30" />
             <button class="primary-btn" onclick="clSubmitWord()" style="white-space:nowrap;padding:16px 20px;align-self:stretch;">Submit</button>
         </div>
         <!-- Pass button: always visible during active play -->
@@ -361,7 +361,7 @@
     <div id="clRequestSkipArea" style="display:none;flex-direction:column;align-items:center;gap:8px;">
         <div style="display:flex;align-items:center;gap:8px;">
             <button id="clRequestSkipBtn" style="padding:9px 24px;border-radius:8px;border:1px solid rgba(139,92,246,0.4);background:transparent;color:var(--neon-violet);font-family:Outfit,sans-serif;font-size:0.82em;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;cursor:pointer;transition:all 0.2s;" onclick="clSendSkipRequest()">Request Skip</button>
-            <button id="clInfoTooltipBtn" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:transparent;color:var(--text-muted);font-size:0.85em;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onclick="clToggleSkipTooltip()">i</button>
+            <button id="clInfoTooltipBtn" class="bb-info-btn" onclick="clToggleSkipTooltip()">i</button>
         </div>
         <div id="clInfoTooltip" style="display:none;font-size:0.74em;color:var(--text-muted);max-width:220px;line-height:1.5;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);">You can request the host to skip the break.</div>
         <div id="clRequestSkipNote" style="display:none;font-size:0.72em;color:var(--neon-lime);letter-spacing:0.5px;">Request sent to host.</div>
@@ -382,6 +382,13 @@
         <div id="clValidatingWord" class="cl-validating-word"></div>
         <div class="cl-spinner"></div>
     </div>
+</div>
+
+<!-- ── Passed (forfeit) overlay — shown to the player who passed ─────── -->
+<div id="clPassedOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,10,15,0.88);backdrop-filter:blur(14px);z-index:2015;align-items:center;justify-content:center;flex-direction:column;gap:16px;text-align:center;padding:24px;">
+    <div style="font-size:2em;">⏭️</div>
+    <div style="font-size:1.1em;font-weight:700;color:var(--text-primary);">Round Passed</div>
+    <div id="clPassedWaitMsg" style="font-size:0.85em;color:var(--text-muted);max-width:280px;line-height:1.5;"></div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -430,7 +437,7 @@
 
         // Body
         if (entry.status === 'invalid_dict') {
-            body.innerText = '"' + entry.word + '" is not recognised as a valid English word by the dictionary validation system.';
+            body.innerText = '"' + entry.word + '" was not recognised as a valid English word.';
         } else if (entry.status === 'wrong_letters') {
             let txt = '';
             if (entry.definition) txt += entry.definition + '\n\n';
@@ -495,8 +502,8 @@
         }
 
         const infoBtn = document.createElement('button');
-        infoBtn.className = 'cl-word-info-btn';
-        infoBtn.innerText = 'Info';
+        infoBtn.className = 'bb-info-btn';
+        infoBtn.innerText = 'i';
         infoBtn.addEventListener('click', function() { clShowWordInfo(entry); });
 
         const right = document.createElement('span');
@@ -653,6 +660,9 @@
     // ── Letter input phase ────────────────────────────────────────────────
     socket.on('clLetterInputPhase', () => {
         console.log('[CL] clLetterInputPhase received — showing letter input view');
+        // Hide passed overlay
+        const _po = document.getElementById('clPassedOverlay');
+        if (_po) _po.style.display = 'none';
         const input = document.getElementById('clLetterInput');
         if (input) { input.value = ''; input.disabled = false; }
         const btn = document.getElementById('clLetterSubmitBtn');
@@ -723,6 +733,9 @@
         clearInterval(clBreakInterval);
         const _ov = document.getElementById('clIntermissionOverlay');
         if (_ov) _ov.style.display = 'none';
+        // Hide passed overlay
+        const _po = document.getElementById('clPassedOverlay');
+        if (_po) _po.style.display = 'none';
         clStartLetter = d.startLetter;
         clEndLetter   = d.endLetter;
         clBo          = d.bo || clBo;
@@ -819,7 +832,7 @@
         if (!word) return;
         input.value = '';
         input.disabled = true;
-        document.getElementById('clValidatingWord').innerText = word;
+        document.getElementById('clValidatingWord').innerText = '';
         document.getElementById('clValidatingOverlay').classList.add('show');
         socket.emit('clWordSubmit', { word });
     }
@@ -833,7 +846,7 @@
     }
 
     socket.on('clPassResponse', d => {
-        // Server responds only on error; success triggers clRoundStart (solo) or clRoundEnd (multi)
+        // Server responds only on error; success triggers clRoundStart (solo) or per-player pass events
         if (!d.success) {
             showNotification(d.error || 'Could not pass round.');
             const passBtn = document.getElementById('clPassBtn');
@@ -843,11 +856,95 @@
         }
     });
 
+    // ── Per-player pass: self passed → show blur overlay ─────────────────
+    socket.on('clPlayerPassed', d => {
+        const overlay = document.getElementById('clPassedOverlay');
+        const msg     = document.getElementById('clPassedWaitMsg');
+        if (msg) {
+            msg.innerText = d.is1v1
+                ? `Waiting for ${d.waitingFor || 'the other player'} to finish.`
+                : 'Waiting for other players to finish.';
+        }
+        if (overlay) overlay.style.display = 'flex';
+        // Disable input + pass btn just in case
+        const wi = document.getElementById('clWordInput');
+        if (wi) { wi.value = ''; wi.disabled = true; }
+        const pb = document.getElementById('clPassBtn');
+        if (pb) { pb.disabled = true; pb.style.display = 'none'; }
+    });
+
+    // ── Opponent passed → no notification shown to remaining players ──────────────────────
+    socket.on('clOpponentPassed', () => {
+        // Intentionally silent — remaining players are not informed
+    });
+
+    // ── All players passed — skipped round ────────────────────────────
+    socket.on('clAllPassed', () => {
+        const overlay = document.getElementById('clPassedOverlay');
+        const msg     = document.getElementById('clPassedWaitMsg');
+        if (msg) msg.innerText = 'All players passed. Starting a fresh round…';
+        if (overlay) overlay.style.display = 'flex';
+    });
+
+    // ── Validation Lock ───────────────────────────────────────────────────
+    socket.on('clValidationLock', d => {
+        const wi = document.getElementById('clWordInput');
+        if (wi) wi.disabled = true;
+        const passBtn = document.getElementById('clPassBtn');
+        if (passBtn) passBtn.disabled = true;
+        showNotification(d.message || 'Validation in progress…');
+    });
+
+    socket.on('clValidationUnlock', () => {
+        // Re-enabled by the specific game event (clWordRejected / clWrongLettersNotice / clRoundEnd)
+    });
+
+    // ── Wrong-letters notice — valid word but wrong first/last letter ──────
+    socket.on('clWrongLettersNotice', d => {
+        document.getElementById('clValidatingOverlay').classList.remove('show');
+        const wi = document.getElementById('clWordInput');
+        if (wi) { wi.value = ''; wi.disabled = true; }
+        const passBtn = document.getElementById('clPassBtn');
+        if (passBtn) passBtn.disabled = true;
+
+        // Show countdown overlay reusing existing clCountdownOverlay
+        const overlay = document.getElementById('clCountdownOverlay');
+        const numEl   = overlay ? overlay.querySelector('.cl-countdown-num') : null;
+        const lblEl   = overlay ? overlay.querySelector('.cl-countdown-lbl') : null;
+        if (lblEl) lblEl.innerText = 'The submitted word is valid but does not match the required letters. Resuming in…';
+        if (overlay) overlay.classList.add('show');
+        let t = 3;
+        if (numEl) numEl.innerText = t;
+        const iv = setInterval(() => {
+            t--;
+            if (numEl) numEl.innerText = t > 0 ? t : '';
+            if (t <= 0) {
+                clearInterval(iv);
+                if (overlay) overlay.classList.remove('show');
+                if (lblEl) lblEl.innerText = 'Get Ready!';
+                const wi2 = document.getElementById('clWordInput');
+                if (wi2) { wi2.disabled = false; wi2.focus(); }
+                const pb = document.getElementById('clPassBtn');
+                if (pb) pb.disabled = false;
+            }
+        }, 1000);
+    });
+
     socket.on('clWordRejected', d => {
         document.getElementById('clValidatingOverlay').classList.remove('show');
-        const input = document.getElementById('clWordInput');
-        if (input) { input.value = ''; input.disabled = false; input.focus(); }
-        showNotification(d.error || 'Invalid word.');
+        // wrong_letters: submitter input re-enabled by clWrongLettersNotice countdown
+        if (d.status !== 'wrong_letters') {
+            const input = document.getElementById('clWordInput');
+            if (input) { input.value = ''; input.disabled = false; input.focus(); }
+            const pb = document.getElementById('clPassBtn');
+            if (pb) pb.disabled = false;
+        }
+        // Show notification (generic — do not reveal word to opponents)
+        if (d.status === 'wrong_letters') {
+            // clWrongLettersNotice handles the countdown and UI messaging
+        } else {
+            showNotification(d.error || 'Invalid word.');
+        }
         // Add to local word list
         if (d.historyEntry) {
             clMyHistory.push(d.historyEntry);
@@ -1294,6 +1391,72 @@
     clHideAll();
     const wi0 = document.getElementById('clWordInput');
     if (wi0) wi0.disabled = true;
+
+    // ── Anti-suggestion / anti-paste enforcement ──────────────────────────
+    (function() {
+        const CTL_IDS = ['clWordInput', 'clLetterInput'];
+        const prevValue = {};
+
+        function showSuggestionError(input) {
+            const msg = 'Keyboard suggestions are not allowed. Please type the word manually.';
+            if (typeof showNotification === 'function') {
+                showNotification(msg);
+            } else {
+                input.style.borderColor = '#ff4444';
+                setTimeout(() => { input.style.borderColor = ''; }, 2000);
+            }
+        }
+
+        function attachGuard(inputId) {
+            const tryAttach = () => {
+                const input = document.getElementById(inputId);
+                if (!input) return;
+
+                input.addEventListener('paste', e => {
+                    e.preventDefault();
+                    showSuggestionError(input);
+                });
+
+                input.addEventListener('beforeinput', e => {
+                    const blocked = [
+                        'insertFromPaste', 'insertFromPasteAsQuotation',
+                        'insertReplacementText', 'insertFromDrop',
+                        'insertFromYank', 'insertTranspose',
+                    ];
+                    if (blocked.includes(e.inputType)) {
+                        e.preventDefault();
+                        showSuggestionError(input);
+                    }
+                });
+
+                input.addEventListener('keydown', () => {
+                    prevValue[inputId] = input.value;
+                });
+
+                input.addEventListener('input', () => {
+                    const before = prevValue[inputId] !== undefined ? prevValue[inputId] : '';
+                    const after  = input.value;
+                    const added  = after.length - before.length;
+                    if (added > 1) {
+                        input.value = before;
+                        prevValue[inputId] = before;
+                        showSuggestionError(input);
+                        return;
+                    }
+                    prevValue[inputId] = input.value;
+                });
+
+                const observer = new MutationObserver(() => {
+                    prevValue[inputId] = input.value;
+                });
+                observer.observe(input, { attributes: true, attributeFilter: ['disabled'] });
+            };
+            tryAttach();
+            setTimeout(tryAttach, 500);
+        }
+
+        CTL_IDS.forEach(attachGuard);
+    })();
 </script>
 </body>
 </html>

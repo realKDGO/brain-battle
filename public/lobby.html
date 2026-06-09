@@ -6,6 +6,7 @@
     <title>Brain Battle — Lobby</title>
     <meta name="description" content="Brain Battle game lobby. Share the room code and wait for your opponent to join.">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/bb-ui.css">
     <style>
         :root {
             --bg: #0A0A0F;
@@ -492,15 +493,14 @@
         <div id="boDisplay" style="display:none;text-align:center;font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--neon-cyan);margin-bottom:4px;"></div>
         <!-- Dictionary toggle: Connect Letters only (2+ players) -->
         <div id="clDictSettings" style="display:none;">
-            <!-- Host view -->
-            <div id="clDictHostRow" class="host-settings" style="display:none;">
+            <!-- Unified view for Host and Guest -->
+            <div id="clDictHostRow" class="host-settings" style="display:none; align-items:center;">
                 <span class="label" style="margin-bottom:0;">DICTIONARY</span>
-                <button id="clDictToggleBtn" onclick="toggleCLDict()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(163,255,18,0.4);background:rgba(163,255,18,0.12);color:var(--neon-lime);font-weight:700;font-size:0.78em;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">ON</button>
+                <button id="clDictToggleBtn" onclick="onDictToggleClick()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(163,255,18,0.4);background:rgba(163,255,18,0.12);color:var(--neon-lime);font-weight:700;font-size:0.78em;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">ON</button>
+                <button onclick="openCLDictInfo()" class="bb-info-btn" style="margin-left:4px;">i</button>
             </div>
-            <!-- Non-host view -->
-            <div id="clDictGuestRow" style="display:none;text-align:center;font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">
-                Dictionary: <span id="clDictGuestStatus" style="color:var(--neon-lime);">ON</span>
-            </div>
+            <!-- Non-host view (removed since we unify the button) -->
+            <div id="clDictGuestRow" style="display:none;"></div>
         </div>
 
         <div class="players-section">
@@ -539,6 +539,64 @@
 
     <div id="snackbar"></div>
 
+    <!-- DICTIONARY GUEST REQUEST DIALOG -->
+    <div id="dictDisabledOverlay" class="dialog-overlay" style="opacity:0; transition:opacity 0.3s ease;">
+        <div class="dialog-card" style="border:1px solid var(--neon-pink);box-shadow:0 0 30px rgba(255,45,120,0.2);">
+            <h3 style="color:var(--neon-pink);">Dictionary Setting</h3>
+            <p id="dictDialogDesc">Dictionary validation is currently ON.</p>
+            <div class="dialog-actions">
+                <button class="btn-ghost" onclick="closeDictDisabledDialog()">Close</button>
+                <button id="requestDictChangeBtn" onclick="requestDictChange()">Request Turn Off</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- HOST DICT REQUEST DIALOG -->
+    <div id="hostDictRequestOverlay" class="dialog-overlay" style="opacity:0; transition:opacity 0.3s ease;">
+        <div class="dialog-card" style="border:1px solid var(--neon-cyan);box-shadow:0 0 30px rgba(0,240,255,0.2);">
+            <h3 style="color:var(--neon-cyan);">Dictionary Request</h3>
+            <p>A player is requesting to enable dictionary validation.</p>
+            <div class="dialog-actions">
+                <button class="btn-ghost" onclick="respondHostDictRequest('ignore')">Ignore</button>
+                <button onclick="respondHostDictRequest('accept')">Accept</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DICTIONARY INFO DIALOG -->
+    <div id="clDictInfoOverlay" class="dialog-overlay" style="opacity:0; transition:opacity 0.3s ease;">
+        <div class="dialog-card" style="border:1px solid var(--neon-cyan);box-shadow:0 0 30px rgba(0,240,255,0.15);max-width:480px;text-align:left;">
+            <h3 style="color:var(--neon-cyan);text-align:center;">Dictionary Setting</h3>
+
+            <p style="margin-bottom:14px;line-height:1.65;">
+                <strong style="color:var(--neon-lime);">Dictionary ON</strong><br>
+                <span style="font-size:0.9em;color:var(--text-muted);">
+                The game checks if the chosen letters can make at least one real English word.
+                This helps avoid impossible or extremely difficult letter combinations,
+                making rounds more fair and consistent.<br><br>
+                Keep in mind: the word list used may not include every English word,
+                so occasionally a combination might still be rejected even if a real word exists.
+                </span>
+            </p>
+
+            <p style="margin-bottom:20px;line-height:1.65;">
+                <strong style="color:var(--neon-pink);">Dictionary OFF</strong><br>
+                <span style="font-size:0.9em;color:var(--text-muted);">
+                Any letter combination is allowed — even if no real English word can be formed.
+                Players have full freedom to pick any letters they want.
+                Some combinations may be very difficult or impossible to answer.
+                </span>
+            </p>
+
+            <p style="font-size:0.82em;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;margin-bottom:16px;line-height:1.6;">
+                ℹ️ Spelling checks remain active whether Dictionary is ON or OFF.
+                Invalid words are always rejected.
+            </p>
+
+            <button class="btn-ghost" onclick="closeCLDictInfo()">Close</button>
+        </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         function showError(msg) {
@@ -566,6 +624,7 @@
 
         socket.on('connect', () => {
             myId = socket.id;
+            console.log(`[DEBUG] Route before join: ${window.location.href}`);
             
             if (action === 'create') {
                 socket.emit('createRoom', { playerName, gameType });
@@ -596,8 +655,11 @@
                 roomCode = d.roomCode;
                 document.getElementById('roomCode').innerText = roomCode;
                 isHost = true;
+                console.log(`[DEBUG] Join success received`);
+                console.log(`[DEBUG] Route after join: ${window.location.href}`);
             } else {
                 showError(d.error || 'Could not rejoin room.');
+                console.log(`[DEBUG] Route before redirect: ${window.location.href} | Redirect source: rejoinRoomResponse (error)`);
                 setTimeout(() => window.location.href = 'select.html', 3000);
             }
         });
@@ -634,6 +696,7 @@
             document.getElementById('crossGameProceedBtn').onclick = function() {
                 document.getElementById('crossGameOverlay').style.display = 'none';
                 const correctParam = GAME_MODE_PARAMS[d.gameMode] || d.gameMode;
+                console.log(`[DEBUG] Route before redirect: ${window.location.href} | Redirect source: checkRoomGameModeResponse (crossGameProceedBtn)`);
                 window.location.href = 'lobby.html?action=join&game=' + correctParam + '&room=' + roomCode;
             };
         });
@@ -645,12 +708,15 @@
                 document.getElementById('roomCode').innerText = roomCode;
                 // Mark as host immediately if server confirms it (e.g. after Play Again rejoin)
                 if (d.hostId === myId) isHost = true;
+                console.log(`[DEBUG] Join success received`);
+                console.log(`[DEBUG] Route after join: ${window.location.href}`);
             } else if (d.status === 'waiting_for_host') {
                 // Show waiting overlay to the joining player
                 document.getElementById('waitingOverlay').classList.add('show');
             } else {
                 document.getElementById('waitingOverlay').classList.remove('show');
                 showError(d.error);
+                console.log(`[DEBUG] Route before redirect: ${window.location.href} | Redirect source: joinRoomResponse (error)`);
                 setTimeout(() => window.location.href = 'select.html', 3000);
             }
         });
@@ -717,35 +783,128 @@
             socket.emit('clBOSelect', { bo: parseInt(val) });
         }
 
-        let clDictEnabled = true;
-        function toggleCLDict() {
-            clDictEnabled = !clDictEnabled;
-            socket.emit('clDictToggle', { enabled: clDictEnabled });
-        }
-        function applyCLDictUI(enabled) {
-            clDictEnabled = enabled;
+        let dictionaryCheckEnabled = true;
+        let _dictRequestCount = 0;
+
+        function applyDictState(enabled) {
+            dictionaryCheckEnabled = enabled;
             const btn = document.getElementById('clDictToggleBtn');
-            const guestStatus = document.getElementById('clDictGuestStatus');
             if (btn) {
                 btn.innerText = enabled ? 'ON' : 'OFF';
                 btn.style.borderColor = enabled ? 'rgba(163,255,18,0.4)' : 'rgba(255,60,120,0.4)';
                 btn.style.background  = enabled ? 'rgba(163,255,18,0.12)' : 'rgba(255,60,120,0.12)';
                 btn.style.color       = enabled ? 'var(--neon-lime)' : 'var(--neon-pink)';
             }
-            if (guestStatus) {
-                guestStatus.innerText = enabled ? 'ON' : 'OFF';
-                guestStatus.style.color = enabled ? 'var(--neon-lime)' : 'var(--neon-pink)';
+        }
+
+        function onDictToggleClick() {
+            if (isHost) {
+                socket.emit('dictToggle', { enabled: !dictionaryCheckEnabled });
+            } else {
+                const desc = document.getElementById('dictDialogDesc');
+                const reqBtn = document.getElementById('requestDictChangeBtn');
+                if (dictionaryCheckEnabled) {
+                    desc.innerText = 'Dictionary validation is currently ON. Word validation is active.';
+                    reqBtn.innerText = 'Request Turn Off';
+                } else {
+                    desc.innerText = 'Dictionary validation is currently OFF. Only spell checking is active. Word validation is inactive.';
+                    reqBtn.innerText = 'Request Turn On';
+                }
+                const overlay = document.getElementById('dictDisabledOverlay');
+                overlay.style.display = 'flex';
+                setTimeout(() => overlay.style.opacity = '1', 10);
             }
         }
-        socket.on('clDictToggleUpdate', d => {
-            applyCLDictUI(d.enabled !== false);
+
+        function closeDictDisabledDialog() {
+            const overlay = document.getElementById('dictDisabledOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
+        function requestDictChange() {
+            if (_dictRequestCount >= 2) {
+                showError('Request limit reached.');
+                return;
+            }
+            socket.emit('requestDictOn', { requestedState: !dictionaryCheckEnabled });
+        }
+
+        socket.on('dictToggleUpdate', d => {
+            applyDictState(d.enabled);
+            if (!isHost) {
+                const msg = d.enabled ? 'Host turned on dictionary validation.' : 'Host turned off dictionary validation.';
+                showError(msg);
+            }
         });
 
+        socket.on('requestDictOnResponse', d => {
+            if (d.limitReached) {
+                const reqBtn = document.getElementById('requestDictChangeBtn');
+                if (reqBtn) reqBtn.disabled = true;
+                showError('Request limit reached.');
+                closeDictDisabledDialog();
+                return;
+            }
+            _dictRequestCount++;
+            if (_dictRequestCount >= 2) {
+                const reqBtn = document.getElementById('requestDictChangeBtn');
+                if (reqBtn) reqBtn.disabled = true;
+            }
+            closeDictDisabledDialog();
+            showError('Request sent to host.');
+        });
+
+        let _pendingDictRequesterId = null;
+
+        socket.on('dictOnRequest', d => {
+            if (!isHost) return;
+            _pendingDictRequesterId = d.requesterId;
+            const p = document.querySelector('#hostDictRequestOverlay .dialog-card p');
+            if (p) {
+                p.innerText = d.requestedState
+                    ? 'A player is requesting to turn ON dictionary validation.'
+                    : 'A player is requesting to turn OFF dictionary validation.';
+            }
+            const overlay = document.getElementById('hostDictRequestOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.style.opacity = '1', 10);
+        });
+
+        function respondHostDictRequest(action) {
+            const overlay = document.getElementById('hostDictRequestOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+            if (_pendingDictRequesterId) {
+                socket.emit('respondDictOnRequest', { requesterId: _pendingDictRequesterId, action });
+                _pendingDictRequesterId = null;
+            }
+        }
+
+        socket.on('dictOnRequestIgnored', () => {
+            showError('Host ignored your request.');
+        });
+
+        function openCLDictInfo() {
+            const overlay = document.getElementById('clDictInfoOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.style.opacity = '1', 10);
+        }
+
+        function closeCLDictInfo() {
+            const overlay = document.getElementById('clDictInfoOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
         socket.on('roomUpdate', r => {
+            console.log(`[DEBUG] Lobby state received`);
+            console.log(`[DEBUG] Lobby render started`);
             if (r.gameState !== "LOBBY") {
                 const dest = (gameType === 'CONNECT_LETTERS')
                     ? `connectletters.html?room=${roomCode}`
                     : `game.html?room=${roomCode}&game=${gameType}`;
+                console.log(`[DEBUG] Route before redirect: ${window.location.href} | Redirect source: roomUpdate (gameState != LOBBY)`);
                 window.location.href = dest;
                 return;
             }
@@ -791,15 +950,14 @@
                 const showBO = (gameType === 'CONNECT_LETTERS') && max >= 2;
                 if (boSettingsEl) boSettingsEl.style.display = showBO ? 'flex' : 'none';
                 if (r.clBO && showBO) { const boSel = document.getElementById('boSelect'); if (boSel) boSel.value = r.clBO; }
+                
                 // CTL dictionary toggle (host)
                 const clDictSettingsEl = document.getElementById('clDictSettings');
                 const clDictHostRow   = document.getElementById('clDictHostRow');
-                const clDictGuestRow  = document.getElementById('clDictGuestRow');
                 const showCLDict = (gameType === 'CONNECT_LETTERS') && max >= 2;
                 if (clDictSettingsEl) clDictSettingsEl.style.display = showCLDict ? 'block' : 'none';
                 if (clDictHostRow)    clDictHostRow.style.display    = showCLDict ? 'flex'  : 'none';
-                if (clDictGuestRow)   clDictGuestRow.style.display   = 'none';
-                if (showCLDict) applyCLDictUI(typeof r.clDictEnabled !== 'undefined' ? r.clDictEnabled : true);
+                if (showCLDict) applyDictState(r.dictEnabled !== false);
                 startBtn.style.display = 'block';
                 if (max === 1) {
                     // Single player: host can start immediately
@@ -816,15 +974,13 @@
                     boDisp.style.display = showBODisp ? 'block' : 'none';
                     boDisp.innerText = r.clBO ? 'Format: BO' + r.clBO : 'Format: BO3';
                 }
-                // CTL dictionary status (guest view)
+                // CTL dictionary status (guest view — unified row, clickable to request changes)
                 const clDictSettingsEl = document.getElementById('clDictSettings');
                 const clDictHostRow   = document.getElementById('clDictHostRow');
-                const clDictGuestRow  = document.getElementById('clDictGuestRow');
                 const showCLDict = (gameType === 'CONNECT_LETTERS') && r.players.length >= 2;
                 if (clDictSettingsEl) clDictSettingsEl.style.display = showCLDict ? 'block' : 'none';
-                if (clDictHostRow)    clDictHostRow.style.display    = 'none';
-                if (clDictGuestRow)   clDictGuestRow.style.display   = showCLDict ? 'block' : 'none';
-                if (showCLDict) applyCLDictUI(typeof r.clDictEnabled !== 'undefined' ? r.clDictEnabled : true);
+                if (clDictHostRow)    clDictHostRow.style.display    = showCLDict ? 'flex'  : 'none';
+                if (showCLDict) applyDictState(r.dictEnabled !== false);
             }
         });
 
