@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brain Battle — Lobby</title>
-    <meta name="description" content="Brain Battle game lobby. Share the room code and wait for your opponent to join.">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <title>Verberi — Lobby</title>
+    <meta name="description" content="Verberi game lobby. Share the room code and wait for your opponent to join.">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;900&family=JetBrains+Mono:wght@700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="/bb-ui.css">
     <style>
         :root {
@@ -25,7 +28,11 @@
             --radius: 16px;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: 'Outfit', sans-serif;
@@ -56,13 +63,11 @@
             content: '';
             position: fixed;
             inset: 0;
-            background: repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 2px,
-                rgba(0, 0, 0, 0.03) 2px,
-                rgba(0, 0, 0, 0.03) 4px
-            );
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.03) 2px,
+                    rgba(0, 0, 0, 0.03) 4px);
             pointer-events: none;
             z-index: 9999;
         }
@@ -84,12 +89,20 @@
         }
 
         @keyframes card-enter {
-            from { opacity: 0; transform: translateY(24px) scale(0.97); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(24px) scale(0.97);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         /* Corner accents */
-        .lobby-card::before, .lobby-card::after {
+        .lobby-card::before,
+        .lobby-card::after {
             content: '';
             position: absolute;
             width: 18px;
@@ -123,8 +136,13 @@
         }
 
         @keyframes fade-in {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         .game-title {
@@ -279,8 +297,15 @@
         }
 
         @keyframes pulse-wait {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 0.55; }
+
+            0%,
+            100% {
+                opacity: 0.4;
+            }
+
+            50% {
+                opacity: 0.55;
+            }
         }
 
         /* Snackbar */
@@ -312,12 +337,27 @@
         }
 
         @keyframes snack-in {
-            from { bottom: 0; opacity: 0; transform: translateX(-50%) translateY(10px); }
-            to { bottom: 30px; opacity: 1; transform: translateX(-50%) translateY(0); }
+            from {
+                bottom: 0;
+                opacity: 0;
+                transform: translateX(-50%) translateY(10px);
+            }
+
+            to {
+                bottom: 30px;
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
         }
+
         @keyframes snack-out {
-            from { opacity: 1; }
-            to { opacity: 0; }
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
         }
 
         /* Back link */
@@ -354,10 +394,21 @@
         }
 
         @keyframes dots {
-            0% { content: ''; }
-            25% { content: '.'; }
-            50% { content: '..'; }
-            75% { content: '...'; }
+            0% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
         }
 
         /* ── Dialog overlays ─────────────────────────── */
@@ -372,7 +423,10 @@
             align-items: center;
             justify-content: center;
         }
-        .dialog-overlay.show { display: flex; }
+
+        .dialog-overlay.show {
+            display: flex;
+        }
 
         .dialog-card {
             background: var(--surface);
@@ -413,12 +467,13 @@
         }
 
         .btn-ghost {
-            background: rgba(255,255,255,0.06) !important;
+            background: rgba(255, 255, 255, 0.06) !important;
             color: var(--text-muted) !important;
             box-shadow: none !important;
         }
+
         .btn-ghost:hover:not(:disabled) {
-            background: rgba(255,255,255,0.1) !important;
+            background: rgba(255, 255, 255, 0.1) !important;
             color: var(--text-primary) !important;
             transform: none !important;
         }
@@ -434,7 +489,7 @@
         }
 
         .host-settings select {
-            background: rgba(10,10,15,0.8);
+            background: rgba(10, 10, 15, 0.8);
             color: var(--neon-cyan);
             border: 1px solid rgba(0, 240, 255, 0.35);
             padding: 8px 14px;
@@ -456,6 +511,7 @@
         }
     </style>
 </head>
+
 <body>
     <a href="select.html" class="back-link">Back</a>
 
@@ -490,13 +546,16 @@
                 <option value="7">BO7</option>
             </select>
         </div>
-        <div id="boDisplay" style="display:none;text-align:center;font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--neon-cyan);margin-bottom:4px;"></div>
+        <div id="boDisplay"
+            style="display:none;text-align:center;font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--neon-cyan);margin-bottom:4px;">
+        </div>
         <!-- Dictionary toggle: Connect Letters only (2+ players) -->
         <div id="clDictSettings" style="display:none;">
             <!-- Unified view for Host and Guest -->
             <div id="clDictHostRow" class="host-settings" style="display:none; align-items:center;">
                 <span class="label" style="margin-bottom:0;">DICTIONARY</span>
-                <button id="clDictToggleBtn" onclick="onDictToggleClick()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(163,255,18,0.4);background:rgba(163,255,18,0.12);color:var(--neon-lime);font-weight:700;font-size:0.78em;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">ON</button>
+                <button id="clDictToggleBtn" onclick="onDictToggleClick()"
+                    style="padding:6px 14px;border-radius:6px;border:1px solid rgba(163,255,18,0.4);background:rgba(163,255,18,0.12);color:var(--neon-lime);font-weight:700;font-size:0.78em;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">ON</button>
                 <button onclick="openCLDictInfo()" class="bb-info-btn" style="margin-left:4px;">i</button>
             </div>
             <!-- Non-host view (removed since we unify the button) -->
@@ -518,7 +577,8 @@
 
     <!-- Waiting-for-host dialog (shown to the joining player) -->
     <div class="dialog-overlay" id="waitingOverlay">
-        <div class="dialog-card" style="border: 1px solid rgba(0, 240, 255, 0.3); box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);">
+        <div class="dialog-card"
+            style="border: 1px solid rgba(0, 240, 255, 0.3); box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);">
             <h3 style="color: var(--neon-cyan);">Waiting for Host</h3>
             <p>The lobby is full. Your request has been sent to the host.</p>
             <div class="waiting-dots" style="font-size: 1.5em; color: var(--neon-cyan);"></div>
@@ -527,7 +587,8 @@
 
     <!-- Host join-request dialog -->
     <div class="dialog-overlay" id="requestOverlay">
-        <div class="dialog-card" style="border: 1px solid var(--neon-pink); box-shadow: 0 0 30px rgba(255, 45, 120, 0.15);">
+        <div class="dialog-card"
+            style="border: 1px solid var(--neon-pink); box-shadow: 0 0 30px rgba(255, 45, 120, 0.15);">
             <h3 style="color: var(--neon-pink);">Join Request</h3>
             <p id="reqMsg">Players want to join, but the lobby is full.<br>Add a player slot to let them in?</p>
             <div class="dialog-actions">
@@ -565,30 +626,32 @@
 
     <!-- DICTIONARY INFO DIALOG -->
     <div id="clDictInfoOverlay" class="dialog-overlay" style="opacity:0; transition:opacity 0.3s ease;">
-        <div class="dialog-card" style="border:1px solid var(--neon-cyan);box-shadow:0 0 30px rgba(0,240,255,0.15);max-width:480px;text-align:left;">
+        <div class="dialog-card"
+            style="border:1px solid var(--neon-cyan);box-shadow:0 0 30px rgba(0,240,255,0.15);max-width:480px;text-align:left;">
             <h3 style="color:var(--neon-cyan);text-align:center;">Dictionary Setting</h3>
 
             <p style="margin-bottom:14px;line-height:1.65;">
                 <strong style="color:var(--neon-lime);">Dictionary ON</strong><br>
                 <span style="font-size:0.9em;color:var(--text-muted);">
-                The game checks if the chosen letters can make at least one real English word.
-                This helps avoid impossible or extremely difficult letter combinations,
-                making rounds more fair and consistent.<br><br>
-                Keep in mind: the word list used may not include every English word,
-                so occasionally a combination might still be rejected even if a real word exists.
+                    The game checks if the chosen letters can make at least one real English word.
+                    This helps avoid impossible or extremely difficult letter combinations,
+                    making rounds more fair and consistent.<br><br>
+                    Keep in mind: the word list used may not include every English word,
+                    so occasionally a combination might still be rejected even if a real word exists.
                 </span>
             </p>
 
             <p style="margin-bottom:20px;line-height:1.65;">
                 <strong style="color:var(--neon-pink);">Dictionary OFF</strong><br>
                 <span style="font-size:0.9em;color:var(--text-muted);">
-                Any letter combination is allowed — even if no real English word can be formed.
-                Players have full freedom to pick any letters they want.
-                Some combinations may be very difficult or impossible to answer.
+                    Any letter combination is allowed — even if no real English word can be formed.
+                    Players have full freedom to pick any letters they want.
+                    Some combinations may be very difficult or impossible to answer.
                 </span>
             </p>
 
-            <p style="font-size:0.82em;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;margin-bottom:16px;line-height:1.6;">
+            <p
+                style="font-size:0.82em;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;margin-bottom:16px;line-height:1.6;">
                 ℹ️ Spelling checks remain active whether Dictionary is ON or OFF.
                 Invalid words are always rejected.
             </p>
@@ -625,7 +688,7 @@
         socket.on('connect', () => {
             myId = socket.id;
             console.log(`[DEBUG] Route before join: ${window.location.href}`);
-            
+
             if (action === 'create') {
                 socket.emit('createRoom', { playerName, gameType });
             } else if (action === 'rejoin' && roomCode) {
@@ -693,7 +756,7 @@
                 'This room belongs to a different game: ' + label + '.';
             document.getElementById('crossGameOverlay').style.display = 'flex';
             // "Proceed to Join" redirects to the correct game's lobby
-            document.getElementById('crossGameProceedBtn').onclick = function() {
+            document.getElementById('crossGameProceedBtn').onclick = function () {
                 document.getElementById('crossGameOverlay').style.display = 'none';
                 const correctParam = GAME_MODE_PARAMS[d.gameMode] || d.gameMode;
                 console.log(`[DEBUG] Route before redirect: ${window.location.href} | Redirect source: checkRoomGameModeResponse (crossGameProceedBtn)`);
@@ -792,8 +855,8 @@
             if (btn) {
                 btn.innerText = enabled ? 'ON' : 'OFF';
                 btn.style.borderColor = enabled ? 'rgba(163,255,18,0.4)' : 'rgba(255,60,120,0.4)';
-                btn.style.background  = enabled ? 'rgba(163,255,18,0.12)' : 'rgba(255,60,120,0.12)';
-                btn.style.color       = enabled ? 'var(--neon-lime)' : 'var(--neon-pink)';
+                btn.style.background = enabled ? 'rgba(163,255,18,0.12)' : 'rgba(255,60,120,0.12)';
+                btn.style.color = enabled ? 'var(--neon-lime)' : 'var(--neon-pink)';
             }
         }
 
@@ -919,12 +982,12 @@
 
             const max = r.maxPlayers || 2;
             document.getElementById('playerCount').innerText = `${r.players.length}/${max}`;
-            
+
             const ul = document.getElementById('playerList');
             ul.innerHTML = '';
             r.players.forEach(p => {
                 const li = document.createElement('li');
-                
+
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'player-name';
                 nameSpan.innerText = p.name;
@@ -936,7 +999,7 @@
                     badge.innerHTML = '👑 <span>HOST</span>';
                     li.appendChild(badge);
                 }
-                
+
                 if (r.host === myId) isHost = true;
                 ul.appendChild(li);
             });
@@ -950,13 +1013,13 @@
                 const showBO = (gameType === 'CONNECT_LETTERS') && max >= 2;
                 if (boSettingsEl) boSettingsEl.style.display = showBO ? 'flex' : 'none';
                 if (r.clBO && showBO) { const boSel = document.getElementById('boSelect'); if (boSel) boSel.value = r.clBO; }
-                
+
                 // CTL dictionary toggle (host)
                 const clDictSettingsEl = document.getElementById('clDictSettings');
-                const clDictHostRow   = document.getElementById('clDictHostRow');
+                const clDictHostRow = document.getElementById('clDictHostRow');
                 const showCLDict = (gameType === 'CONNECT_LETTERS') && max >= 2;
                 if (clDictSettingsEl) clDictSettingsEl.style.display = showCLDict ? 'block' : 'none';
-                if (clDictHostRow)    clDictHostRow.style.display    = showCLDict ? 'flex'  : 'none';
+                if (clDictHostRow) clDictHostRow.style.display = showCLDict ? 'flex' : 'none';
                 if (showCLDict) applyDictState(r.dictEnabled !== false);
                 startBtn.style.display = 'block';
                 if (max === 1) {
@@ -976,10 +1039,10 @@
                 }
                 // CTL dictionary status (guest view — unified row, clickable to request changes)
                 const clDictSettingsEl = document.getElementById('clDictSettings');
-                const clDictHostRow   = document.getElementById('clDictHostRow');
+                const clDictHostRow = document.getElementById('clDictHostRow');
                 const showCLDict = (gameType === 'CONNECT_LETTERS') && r.players.length >= 2;
                 if (clDictSettingsEl) clDictSettingsEl.style.display = showCLDict ? 'block' : 'none';
-                if (clDictHostRow)    clDictHostRow.style.display    = showCLDict ? 'flex'  : 'none';
+                if (clDictHostRow) clDictHostRow.style.display = showCLDict ? 'flex' : 'none';
                 if (showCLDict) applyDictState(r.dictEnabled !== false);
             }
         });
@@ -990,16 +1053,25 @@
         }
     </script>
     <!-- ── Cross-game room dialog ─────────────────────────────────────── -->
-    <div id="crossGameOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,10,15,0.85);backdrop-filter:blur(8px);z-index:3000;align-items:center;justify-content:center;">
-        <div style="background:rgba(18,18,28,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-            <h3 style="font-size:1em;font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;color:var(--neon-pink);">Wrong Game</h3>
-            <p id="crossGameMsg" style="font-size:0.88em;color:var(--neon-text-muted, #6B6B80);line-height:1.6;margin-bottom:20px;"></p>
+    <div id="crossGameOverlay"
+        style="display:none;position:fixed;inset:0;background:rgba(10,10,15,0.85);backdrop-filter:blur(8px);z-index:3000;align-items:center;justify-content:center;">
+        <div
+            style="background:rgba(18,18,28,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+            <h3
+                style="font-size:1em;font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;color:var(--neon-pink);">
+                Wrong Game</h3>
+            <p id="crossGameMsg"
+                style="font-size:0.88em;color:var(--neon-text-muted, #6B6B80);line-height:1.6;margin-bottom:20px;"></p>
             <div style="display:flex;gap:10px;justify-content:flex-end;">
-                <button style="font-family:Outfit,sans-serif;font-size:0.88em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border:none;border-radius:8px;cursor:pointer;padding:12px 20px;background:rgba(255,255,255,0.08);color:#F0F0F5;border:1px solid rgba(255,255,255,0.12);"
+                <button
+                    style="font-family:Outfit,sans-serif;font-size:0.88em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border:none;border-radius:8px;cursor:pointer;padding:12px 20px;background:rgba(255,255,255,0.08);color:#F0F0F5;border:1px solid rgba(255,255,255,0.12);"
                     onclick="document.getElementById('crossGameOverlay').style.display='none'">Close</button>
-                <button id="crossGameProceedBtn" style="font-family:Outfit,sans-serif;font-size:0.88em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border:none;border-radius:8px;cursor:pointer;padding:12px 20px;background:#A3FF12;color:#0A0A0F;">Proceed to Join</button>
+                <button id="crossGameProceedBtn"
+                    style="font-family:Outfit,sans-serif;font-size:0.88em;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border:none;border-radius:8px;cursor:pointer;padding:12px 20px;background:#A3FF12;color:#0A0A0F;">Proceed
+                    to Join</button>
             </div>
         </div>
     </div>
 </body>
+
 </html>

@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brain Battle — Enter the Arena</title>
-    <meta name="description" content="Brain Battle — A multiplayer arcade word puzzle arena. Enter your name and challenge your friends.">
+    <title>Verberi — Enter the Arena</title>
+    <meta name="description"
+        content="Verberi — A multiplayer arcade word puzzle arena. Enter your name and challenge your friends.">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -23,7 +25,11 @@
             --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: 'Outfit', sans-serif;
@@ -54,13 +60,11 @@
             content: '';
             position: fixed;
             inset: 0;
-            background: repeating-linear-gradient(
-                0deg,
-                transparent,
-                transparent 2px,
-                rgba(0, 0, 0, 0.03) 2px,
-                rgba(0, 0, 0, 0.03) 4px
-            );
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.03) 2px,
+                    rgba(0, 0, 0, 0.03) 4px);
             pointer-events: none;
             z-index: 9999;
         }
@@ -83,20 +87,82 @@
             animation: float-up linear infinite;
         }
 
-        .particle:nth-child(1) { left: 15%; animation-duration: 12s; animation-delay: 0s; background: var(--neon-pink); }
-        .particle:nth-child(2) { left: 35%; animation-duration: 15s; animation-delay: 2s; background: var(--neon-lime); }
-        .particle:nth-child(3) { left: 55%; animation-duration: 10s; animation-delay: 4s; background: var(--neon-violet); }
-        .particle:nth-child(4) { left: 75%; animation-duration: 14s; animation-delay: 1s; background: var(--neon-cyan); }
-        .particle:nth-child(5) { left: 90%; animation-duration: 11s; animation-delay: 3s; background: var(--neon-pink); }
-        .particle:nth-child(6) { left: 25%; animation-duration: 13s; animation-delay: 5s; background: var(--neon-lime); }
-        .particle:nth-child(7) { left: 65%; animation-duration: 16s; animation-delay: 0.5s; background: var(--neon-violet); }
-        .particle:nth-child(8) { left: 45%; animation-duration: 9s; animation-delay: 3.5s; background: var(--neon-cyan); }
+        .particle:nth-child(1) {
+            left: 15%;
+            animation-duration: 12s;
+            animation-delay: 0s;
+            background: var(--neon-pink);
+        }
+
+        .particle:nth-child(2) {
+            left: 35%;
+            animation-duration: 15s;
+            animation-delay: 2s;
+            background: var(--neon-lime);
+        }
+
+        .particle:nth-child(3) {
+            left: 55%;
+            animation-duration: 10s;
+            animation-delay: 4s;
+            background: var(--neon-violet);
+        }
+
+        .particle:nth-child(4) {
+            left: 75%;
+            animation-duration: 14s;
+            animation-delay: 1s;
+            background: var(--neon-cyan);
+        }
+
+        .particle:nth-child(5) {
+            left: 90%;
+            animation-duration: 11s;
+            animation-delay: 3s;
+            background: var(--neon-pink);
+        }
+
+        .particle:nth-child(6) {
+            left: 25%;
+            animation-duration: 13s;
+            animation-delay: 5s;
+            background: var(--neon-lime);
+        }
+
+        .particle:nth-child(7) {
+            left: 65%;
+            animation-duration: 16s;
+            animation-delay: 0.5s;
+            background: var(--neon-violet);
+        }
+
+        .particle:nth-child(8) {
+            left: 45%;
+            animation-duration: 9s;
+            animation-delay: 3.5s;
+            background: var(--neon-cyan);
+        }
 
         @keyframes float-up {
-            0% { bottom: -10px; opacity: 0; transform: translateX(0); }
-            10% { opacity: 0.6; }
-            90% { opacity: 0.6; }
-            100% { bottom: 110vh; opacity: 0; transform: translateX(30px); }
+            0% {
+                bottom: -10px;
+                opacity: 0;
+                transform: translateX(0);
+            }
+
+            10% {
+                opacity: 0.6;
+            }
+
+            90% {
+                opacity: 0.6;
+            }
+
+            100% {
+                bottom: 110vh;
+                opacity: 0;
+                transform: translateX(30px);
+            }
         }
 
         .card {
@@ -118,8 +184,15 @@
         }
 
         @keyframes card-enter {
-            from { opacity: 0; transform: translateY(30px) scale(0.97); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.97);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         h1 {
@@ -137,8 +210,15 @@
         }
 
         @keyframes title-enter {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .subtitle {
@@ -151,8 +231,15 @@
         }
 
         @keyframes subtitle-enter {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .input-group {
@@ -161,8 +248,15 @@
         }
 
         @keyframes input-enter {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         input {
@@ -217,8 +311,15 @@
         }
 
         @keyframes btn-enter {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         button:hover {
@@ -233,9 +334,21 @@
         }
 
         @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20%, 60% { transform: translateX(-6px); }
-            40%, 80% { transform: translateX(6px); }
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20%,
+            60% {
+                transform: translateX(-6px);
+            }
+
+            40%,
+            80% {
+                transform: translateX(6px);
+            }
         }
 
         /* Page transition */
@@ -246,7 +359,8 @@
         }
 
         /* Decorative corner accents */
-        .card::before, .card::after {
+        .card::before,
+        .card::after {
             content: '';
             position: absolute;
             width: 20px;
@@ -270,6 +384,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="particles">
         <div class="particle"></div>
@@ -283,7 +398,7 @@
     </div>
 
     <div class="card" id="mainCard">
-        <h1>Brain Battle</h1>
+        <h1>Verberi</h1>
         <p class="subtitle">Enter your name to join the arena</p>
         <div class="input-group">
             <input type="text" id="playerName" placeholder="Enter your name" autocomplete="off" maxlength="15">
@@ -301,7 +416,7 @@
         });
 
         // Remove error state on typing
-        nameInput.addEventListener('input', function() {
+        nameInput.addEventListener('input', function () {
             this.classList.remove('error');
         });
 
@@ -312,7 +427,7 @@
                 return;
             }
             sessionStorage.setItem('playerName', name);
-            
+
             // Subtle transition
             mainCard.classList.add('fade-out');
             setTimeout(() => {
@@ -321,4 +436,5 @@
         }
     </script>
 </body>
+
 </html>
