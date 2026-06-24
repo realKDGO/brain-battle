@@ -549,6 +549,28 @@
         <div id="boDisplay"
             style="display:none;text-align:center;font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--neon-cyan);margin-bottom:4px;">
         </div>
+        <!-- Wordle Settings: Word Length -->
+        <div id="wordleSettings" style="display:none;">
+            <!-- Host View -->
+            <div id="wordLengthHostRow" class="host-settings" style="display:none; align-items:center;">
+                <span class="label" style="margin-bottom:0;">WORD LENGTH</span>
+                <select id="wordLengthSelect" onchange="updateWordLength(this.value)">
+                    <option value="5" selected>5 Letters</option>
+                    <option value="6">6 Letters</option>
+                    <option value="7">7 Letters</option>
+                    <option value="8">8 Letters</option>
+                </select>
+            </div>
+            <!-- Guest View -->
+            <div id="wordLengthGuestRow" class="host-settings" style="display:none; align-items:center;">
+                <span class="label" style="margin-bottom:0;">WORD LENGTH</span>
+                <button id="wordLengthGuestBtn" onclick="openWordLengthRequestDialog()"
+                    style="padding:6px 14px;border-radius:6px;border:1px solid rgba(0,240,255,0.4);background:rgba(0,240,255,0.12);color:var(--neon-cyan);font-weight:700;font-size:0.78em;text-transform:uppercase;letter-spacing:1px;cursor:pointer;">
+                    5 Letters
+                </button>
+            </div>
+        </div>
+
         <!-- Dictionary toggle: Connect Letters only (2+ players) -->
         <div id="clDictSettings" style="display:none;">
             <!-- Unified view for Host and Guest -->
@@ -620,6 +642,36 @@
             <div class="dialog-actions">
                 <button class="btn-ghost" onclick="respondHostDictRequest('ignore')">Ignore</button>
                 <button onclick="respondHostDictRequest('accept')">Accept</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WORD LENGTH GUEST REQUEST DIALOG -->
+    <div id="wordLengthRequestOverlay" class="dialog-overlay" style="opacity:0; transition:opacity 0.3s ease;">
+        <div class="dialog-card" style="border:1px solid var(--neon-cyan);box-shadow:0 0 30px rgba(0,240,255,0.2);">
+            <h3 style="color:var(--neon-cyan);">Word Length Setting</h3>
+            <p>Select the word length you want to request:</p>
+            <select id="guestWordLengthSelect" class="host-settings" style="width: 100%; margin-bottom: 20px; padding: 12px; background: rgba(10,10,15,0.8); color: var(--neon-cyan); border: 1px solid rgba(0,240,255,0.35); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 1.1em; outline: none; cursor: pointer;">
+                <option value="5">5 Letters</option>
+                <option value="6">6 Letters</option>
+                <option value="7">7 Letters</option>
+                <option value="8">8 Letters</option>
+            </select>
+            <div class="dialog-actions">
+                <button class="btn-ghost" onclick="closeWordLengthRequestDialog()">Close</button>
+                <button id="requestWordLengthBtn" onclick="requestWordLength()">Request</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- HOST WORD LENGTH REQUEST DIALOG -->
+    <div id="hostWordLengthRequestOverlay" class="dialog-overlay" style="opacity:0; transition:opacity 0.3s ease;">
+        <div class="dialog-card" style="border:1px solid var(--neon-cyan);box-shadow:0 0 30px rgba(0,240,255,0.2);">
+            <h3 style="color:var(--neon-cyan);">Word Length Request</h3>
+            <p id="hostWordLengthRequestMsg">A player is requesting to change word length to 5 letters.</p>
+            <div class="dialog-actions">
+                <button class="btn-ghost" onclick="respondWordLengthRequest('ignore')">Ignore</button>
+                <button onclick="respondWordLengthRequest('accept')">Accept</button>
             </div>
         </div>
     </div>
@@ -732,11 +784,13 @@
             'CONNECT_LETTERS': 'Connect the Letters',
             'WORD_CHAIN': 'Word Chain',
             'GUESS_NUMBER': 'Guess the Number',
+            'WORDLE': 'Wordle Puzzle',
         };
         const GAME_MODE_PARAMS = {
             'CONNECT_LETTERS': 'CONNECT_LETTERS',
             'WORD_CHAIN': 'WORD_CHAIN',
             'GUESS_NUMBER': 'GUESS_NUMBER',
+            'WORDLE': 'WORDLE',
         };
 
         socket.on('checkRoomGameModeResponse', d => {
@@ -845,6 +899,9 @@
         function updateBO(val) {
             socket.emit('clBOSelect', { bo: parseInt(val) });
         }
+        function updateWordLength(val) {
+            socket.emit('updateWordLength', { wordLength: parseInt(val) });
+        }
 
         let dictionaryCheckEnabled = true;
         let _dictRequestCount = 0;
@@ -948,6 +1005,74 @@
             showError('Host ignored your request.');
         });
 
+        // ── WORD LENGTH LOGIC ──
+        let _wordLengthRequestCount = 0;
+        let _pendingWordLengthRequesterId = null;
+
+        function openWordLengthRequestDialog() {
+            const overlay = document.getElementById('wordLengthRequestOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.style.opacity = '1', 10);
+        }
+
+        function closeWordLengthRequestDialog() {
+            const overlay = document.getElementById('wordLengthRequestOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+
+        function requestWordLength() {
+            if (_wordLengthRequestCount >= 2) {
+                showError('Request limit reached.');
+                return;
+            }
+            const len = parseInt(document.getElementById('guestWordLengthSelect').value);
+            socket.emit('requestWordLength', { requestedLength: len });
+        }
+
+        socket.on('requestWordLengthResponse', d => {
+            if (d.limitReached) {
+                const reqBtn = document.getElementById('requestWordLengthBtn');
+                if (reqBtn) reqBtn.disabled = true;
+                showError('Request limit reached.');
+                closeWordLengthRequestDialog();
+                return;
+            }
+            _wordLengthRequestCount++;
+            if (_wordLengthRequestCount >= 2) {
+                const reqBtn = document.getElementById('requestWordLengthBtn');
+                if (reqBtn) reqBtn.disabled = true;
+            }
+            closeWordLengthRequestDialog();
+            showError('Request sent to host.');
+        });
+
+        socket.on('wordLengthRequest', d => {
+            if (!isHost) return;
+            _pendingWordLengthRequesterId = d.requesterId;
+            const p = document.getElementById('hostWordLengthRequestMsg');
+            if (p) {
+                p.innerText = `A player is requesting to change word length to ${d.requestedLength} letters.`;
+            }
+            const overlay = document.getElementById('hostWordLengthRequestOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => overlay.style.opacity = '1', 10);
+        });
+
+        function respondWordLengthRequest(action) {
+            const overlay = document.getElementById('hostWordLengthRequestOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.style.display = 'none', 300);
+            if (_pendingWordLengthRequesterId) {
+                socket.emit('respondWordLengthRequest', { requesterId: _pendingWordLengthRequesterId, action });
+                _pendingWordLengthRequesterId = null;
+            }
+        }
+
+        socket.on('wordLengthRequestIgnored', () => {
+            showError('Host ignored your request.');
+        });
+
         function openCLDictInfo() {
             const overlay = document.getElementById('clDictInfoOverlay');
             overlay.style.display = 'flex';
@@ -966,6 +1091,8 @@
             if (r.gameState !== "LOBBY") {
                 const dest = (gameType === 'CONNECT_LETTERS')
                     ? `connectletters.html?room=${roomCode}`
+                    : (gameType === 'WORDLE')
+                    ? `wordle.html?room=${roomCode}`
                     : `game.html?room=${roomCode}&game=${gameType}`;
                 console.log(`[DEBUG] Route before redirect: ${window.location.href} | Redirect source: roomUpdate (gameState != LOBBY)`);
                 window.location.href = dest;
@@ -1014,10 +1141,23 @@
                 if (boSettingsEl) boSettingsEl.style.display = showBO ? 'flex' : 'none';
                 if (r.clBO && showBO) { const boSel = document.getElementById('boSelect'); if (boSel) boSel.value = r.clBO; }
 
-                // CTL dictionary toggle (host)
+                // Wordle Word Length setting (host)
+                const wordleSettingsEl = document.getElementById('wordleSettings');
+                const wordLengthHostRow = document.getElementById('wordLengthHostRow');
+                const wordLengthGuestRow = document.getElementById('wordLengthGuestRow');
+                const showWordle = (gameType === 'WORDLE') && max >= 2;
+                if (wordleSettingsEl) wordleSettingsEl.style.display = showWordle ? 'block' : 'none';
+                if (wordLengthHostRow) wordLengthHostRow.style.display = showWordle ? 'flex' : 'none';
+                if (wordLengthGuestRow) wordLengthGuestRow.style.display = 'none'; // hidden for host
+                if (showWordle && r.wordLength) {
+                    const wlSel = document.getElementById('wordLengthSelect');
+                    if (wlSel) wlSel.value = r.wordLength;
+                }
+
+                // CTL/Wordle dictionary toggle (host)
                 const clDictSettingsEl = document.getElementById('clDictSettings');
                 const clDictHostRow = document.getElementById('clDictHostRow');
-                const showCLDict = (gameType === 'CONNECT_LETTERS') && max >= 2;
+                const showCLDict = (gameType === 'CONNECT_LETTERS' || gameType === 'WORDLE') && max >= 2;
                 if (clDictSettingsEl) clDictSettingsEl.style.display = showCLDict ? 'block' : 'none';
                 if (clDictHostRow) clDictHostRow.style.display = showCLDict ? 'flex' : 'none';
                 if (showCLDict) applyDictState(r.dictEnabled !== false);
@@ -1037,10 +1177,23 @@
                     boDisp.style.display = showBODisp ? 'block' : 'none';
                     boDisp.innerText = r.clBO ? 'Format: BO' + r.clBO : 'Format: BO3';
                 }
-                // CTL dictionary status (guest view — unified row, clickable to request changes)
+                // Wordle Word Length status (guest view)
+                const wordleSettingsEl = document.getElementById('wordleSettings');
+                const wordLengthHostRow = document.getElementById('wordLengthHostRow');
+                const wordLengthGuestRow = document.getElementById('wordLengthGuestRow');
+                const showWordle = (gameType === 'WORDLE') && r.players.length >= 2;
+                if (wordleSettingsEl) wordleSettingsEl.style.display = showWordle ? 'block' : 'none';
+                if (wordLengthHostRow) wordLengthHostRow.style.display = 'none'; // hidden for guest
+                if (wordLengthGuestRow) wordLengthGuestRow.style.display = showWordle ? 'flex' : 'none';
+                if (showWordle && r.wordLength) {
+                    const wlBtn = document.getElementById('wordLengthGuestBtn');
+                    if (wlBtn) wlBtn.innerText = r.wordLength + ' Letters';
+                }
+
+                // CTL/Wordle dictionary status (guest view)
                 const clDictSettingsEl = document.getElementById('clDictSettings');
                 const clDictHostRow = document.getElementById('clDictHostRow');
-                const showCLDict = (gameType === 'CONNECT_LETTERS') && r.players.length >= 2;
+                const showCLDict = (gameType === 'CONNECT_LETTERS' || gameType === 'WORDLE') && r.players.length >= 2;
                 if (clDictSettingsEl) clDictSettingsEl.style.display = showCLDict ? 'block' : 'none';
                 if (clDictHostRow) clDictHostRow.style.display = showCLDict ? 'flex' : 'none';
                 if (showCLDict) applyDictState(r.dictEnabled !== false);

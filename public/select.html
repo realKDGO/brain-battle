@@ -173,6 +173,10 @@
             animation: card-stagger 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.43s both;
         }
 
+        .card:nth-child(6) {
+            animation: card-stagger 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.50s both;
+        }
+
         @keyframes card-stagger {
             from {
                 opacity: 0;
@@ -557,12 +561,21 @@
             </div>
         </div>
 
-        <!-- Wordle (unavailable) -->
-        <div class="card unavailable">
-            <div class="card-badge">Coming Soon</div>
+        <!-- Wordle -->
+        <div class="card" id="card_WORDLE" onclick="selectGame('WORDLE', event)">
             <div class="icon">🟩</div>
             <h3>Wordle Puzzle</h3>
-            <p class="card-desc">The classic word-guessing duel. 5 letters, 6 tries.</p>
+            <p class="card-desc">The classic word-guessing duel. 5 letters, 6 tries. Race your opponent to crack the code.</p>
+
+            <div class="card-actions" id="actions_WORDLE">
+                <div class="card-actions-inner">
+                    <div class="action-top" id="top_WORDLE">
+                        <button class="host-btn" onclick="onHostClick('WORDLE', event)">⚡ Host Game</button>
+                    </div>
+                    <div class="action-divider"></div>
+                    <button class="join-btn" id="joinBtn_WORDLE" onclick="onJoinClick('WORDLE', event)">🎮 Join Game</button>
+                </div>
+            </div>
         </div>
 
         <!-- Dingbats (unavailable) -->

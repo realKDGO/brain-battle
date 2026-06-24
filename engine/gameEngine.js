@@ -89,7 +89,7 @@ function startSetup(roomCode) {
   const { mod, error: modErr } = resolveModule(room);
   if (modErr) return { success: false, error: modErr };
 
-  room.gameData  = mod.init(room.players, { bo: room.clBO || 3 });
+  room.gameData  = mod.init(room.players, { bo: room.clBO || 3, wordLength: room.wordLength || 5 });
   room.gameState = GAME_STATE.SETUP;
 
   console.log(`[Engine] ${roomCode} → SETUP (mode: ${room.gameMode})`);
@@ -195,7 +195,7 @@ function resetGame(roomCode) {
   const { getGameModule } = require("../games/index");
   const mod = getGameModule(room.gameMode);
   if (mod && mod.init) {
-    room.gameData = mod.init(room.players, { bo: room.clBO || 3 });
+    room.gameData = mod.init(room.players, { bo: room.clBO || 3, wordLength: room.wordLength || 5 });
   } else {
     room.gameData = {};
   }

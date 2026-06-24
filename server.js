@@ -13,6 +13,7 @@ const {
   findRoomBySocket,
   getRoom,
   updateMaxPlayers,
+  updateWordLength,
 } = require("./rooms/roomManager");
 
 const {
@@ -326,6 +327,58 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ── updateWordLength ───────────────────────────────────────────────────────
+  // Host changes wordLength from the lobby dropdown.
+  socket.on("updateWordLength", ({ wordLength } = {}) => {
+    const ctx = requireRoom(socket, "updateWordLength");
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (rejectIfNotHost(socket, room, "updateWordLength")) return;
+
+    if (typeof wordLength === 'number') {
+      updateWordLength(roomCode, wordLength);
+      broadcastRoomUpdate(roomCode, room);
+    }
+  });
+
+  // ── requestWordLength ──────────────────────────────────────────────────────
+  // Non-host player requests host to change word length.
+  socket.on('requestWordLength', ({ requestedLength } = {}) => {
+    const ctx = requireRoom(socket, 'requestWordLength');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (!room.wordLengthRequestCounts) room.wordLengthRequestCounts = {};
+    const count = room.wordLengthRequestCounts[socket.id] || 0;
+    if (count >= 2) {
+      return socket.emit('requestWordLengthResponse', { success: false, limitReached: true });
+    }
+    room.wordLengthRequestCounts[socket.id] = count + 1;
+    // Store requested state
+    if (!room._pendingWordLengthRequests) room._pendingWordLengthRequests = {};
+    room._pendingWordLengthRequests[socket.id] = requestedLength;
+    io.to(room.host).emit('wordLengthRequest', { requesterId: socket.id, requestedLength });
+    socket.emit('requestWordLengthResponse', { success: true });
+  });
+
+  // ── respondWordLengthRequest ───────────────────────────────────────────────
+  // Host accepts or ignores a wordLength request.
+  socket.on('respondWordLengthRequest', ({ requesterId, action } = {}) => {
+    const ctx = requireRoom(socket, 'respondWordLengthRequest');
+    if (!ctx) return;
+    const { roomCode, room } = ctx;
+    if (rejectIfNotHost(socket, room, 'respondWordLengthRequest')) return;
+    if (action === 'accept') {
+      const targetLength = room._pendingWordLengthRequests && room._pendingWordLengthRequests[requesterId]
+        ? room._pendingWordLengthRequests[requesterId] : 5;
+      updateWordLength(roomCode, targetLength);
+      broadcastRoomUpdate(roomCode, room);
+    } else {
+      io.to(requesterId).emit('wordLengthRequestIgnored');
+    }
+    // Clean up pending entry
+    if (room._pendingWordLengthRequests) delete room._pendingWordLengthRequests[requesterId];
+  });
+
   // ── leaveRoom ──────────────────────────────────────────────────────────────
   socket.on("leaveRoom", () => handleLeave(socket));
 
@@ -370,6 +423,21 @@ io.on("connection", (socket) => {
         return;
       }
 
+      if (room.gameMode === 'WORDLE') {
+        if (room.players.length === 1) {
+            // Single player: jump straight to ACTIVE.
+            const startResult = startGame(roomCode);
+            if (startResult.success) {
+              io.to(roomCode).emit('gameStarted', { payload: startResult.payload });
+              broadcastRoomUpdate(roomCode, room);
+            }
+            return;
+        }
+        // Multiplayer: enter SETUP phase
+        broadcastRoomUpdate(roomCode, room);
+        return;
+      }
+
       const allSubmitted = room.players.every(p => room.gameData.chains && room.gameData.chains[p.id] && room.gameData.chains[p.id].submitted);
       if (allSubmitted) {
         const startResult = startGame(roomCode);
@@ -403,7 +471,32 @@ io.on("connection", (socket) => {
       broadcastRoomUpdate(roomCode, result.room);
     } else {
       socket.emit("submitSetupResponse", { success: result.success, error: result.error, words: result.words, invalidCompound: result.invalidCompound });
-      if (result.success) broadcastRoomUpdate(roomCode, result.room);
+      if (result.success) {
+        broadcastRoomUpdate(roomCode, result.room);
+
+        // Wordle multiplayer: notify others, then auto-start when all have submitted
+        if (result.room && result.room.gameMode === 'WORDLE' && result.room.players.length > 1) {
+          const submitter = result.room.players.find(p => p.id === socket.id);
+          const submitterName = submitter ? submitter.name : 'A player';
+          socket.to(roomCode).emit('notification', {
+            message: `${submitterName} has submitted their word.`,
+            type: 'info'
+          });
+
+          const allSubmitted = result.room.players.every(p =>
+            result.room.gameData.chains &&
+            result.room.gameData.chains[p.id] &&
+            result.room.gameData.chains[p.id].submitted
+          );
+          if (allSubmitted) {
+            const startResult = startGame(roomCode);
+            if (startResult.success) {
+              io.to(roomCode).emit('gameStarted', { payload: startResult.payload });
+              broadcastRoomUpdate(roomCode, startResult.room);
+            }
+          }
+        }
+      }
     }
   });
 

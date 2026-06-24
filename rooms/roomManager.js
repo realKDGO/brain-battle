@@ -36,6 +36,7 @@ function createRoom(socketId, playerName, gameType) {
     gameMode: gameType,
     gameState: "LOBBY",
     gameData: {},
+    wordLength: 5, // Default for Wordle
   };
 
   return { success: true, roomCode, room: rooms[roomCode] };
@@ -174,6 +175,16 @@ function updateMaxPlayers(roomCode, newMax) {
   return room;
 }
 
+/**
+ * Update wordLength for a room. Clamped to 5-8.
+ */
+function updateWordLength(roomCode, newLen) {
+  const room = rooms[roomCode];
+  if (!room) return null;
+  room.wordLength = Math.max(5, Math.min(8, newLen));
+  return room;
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -184,4 +195,5 @@ module.exports = {
   getRoom,
   getRooms,
   updateMaxPlayers,
+  updateWordLength,
 };
